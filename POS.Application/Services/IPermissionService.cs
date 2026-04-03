@@ -10,7 +10,9 @@ public interface IPermissionService
     Task<IEnumerable<Permission>> GetRolePermissionsAsync(string roleId);
     Task AssignPermissionToRoleAsync(string roleId, int permissionId);
     Task RevokePermissionFromRoleAsync(string roleId, int permissionId);
+    Task BulkUpdateRolePermissionsAsync(string roleId, IEnumerable<int> newPermissionIds);
     Task<IEnumerable<PermissionDto>> GetUserEffectivePermissionsAsync(string userId);
     Task SetUserPermissionOverrideAsync(string userId, int permissionId, bool isGranted);
     Task RemoveUserPermissionOverrideAsync(string userId, int permissionId);
+    Task ReplaceUserPermissionOverridesAsync(string userId, IEnumerable<int> grantedPermissionIds);
 }

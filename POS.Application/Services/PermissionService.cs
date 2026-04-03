@@ -64,10 +64,13 @@ public class PermissionService : IPermissionService
         // 2. Fall back to role-based check
         var roleNames = await _userManager.GetRolesAsync(user);
 
+        var roleIds = await _db.Roles
+            .Where(r => roleNames.Contains(r.Name!))
+            .Select(r => r.Id)
+            .ToListAsync();
+
         return await _db.RolePermissions
-            .AnyAsync(rp =>
-                rp.PermissionId == perm.Id &&
-                _db.Roles.Where(r => roleNames.Contains(r.Name!)).Select(r => r.Id).Contains(rp.RoleId));
+            .AnyAsync(rp => rp.PermissionId == perm.Id && roleIds.Contains(rp.RoleId));
     }
 
     public async Task<IEnumerable<PermissionDto>> GetUserEffectivePermissionsAsync(string userId)
@@ -144,5 +147,48 @@ public class PermissionService : IPermissionService
             _db.UserPermissionOverrides.Remove(existing);
             await _db.SaveChangesAsync();
         }
+    }
+
+    /// <summary>
+    /// Replaces all user permission overrides in a single transaction:
+    /// removes all existing overrides then bulk-inserts the granted set.
+    /// </summary>
+    public async Task ReplaceUserPermissionOverridesAsync(string userId, IEnumerable<int> grantedPermissionIds)
+    {
+        var grantedSet = grantedPermissionIds.ToHashSet();
+
+        var existing = await _db.UserPermissionOverrides
+            .Where(upo => upo.UserId == userId)
+            .ToListAsync();
+
+        _db.UserPermissionOverrides.RemoveRange(existing);
+
+        foreach (var permId in grantedSet)
+            _db.UserPermissionOverrides.Add(new UserPermissionOverride { UserId = userId, PermissionId = permId, IsGranted = true });
+
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Replaces role-permission assignments in a single transaction.
+    /// </summary>
+    public async Task BulkUpdateRolePermissionsAsync(string roleId, IEnumerable<int> newPermissionIds)
+    {
+        var newIds = newPermissionIds.ToHashSet();
+
+        var current = await _db.RolePermissions
+            .Where(rp => rp.RoleId == roleId)
+            .ToListAsync();
+
+        var currentIds = current.Select(rp => rp.PermissionId).ToHashSet();
+
+        var toRemove = current.Where(rp => !newIds.Contains(rp.PermissionId)).ToList();
+        var toAdd = newIds.Where(id => !currentIds.Contains(id))
+            .Select(id => new RolePermission { RoleId = roleId, PermissionId = id })
+            .ToList();
+
+        _db.RolePermissions.RemoveRange(toRemove);
+        _db.RolePermissions.AddRange(toAdd);
+        await _db.SaveChangesAsync();
     }
 }

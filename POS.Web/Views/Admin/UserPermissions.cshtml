@@ -14,9 +14,9 @@
     Unchecked permissions revert to what the user's role(s) allow.
 </div>
 
-<form asp-action="UserPermissions" asp-route-userId="@Model.UserId" method="post">
+<form asp-action="UserPermissions" method="post">
     @Html.AntiForgeryToken()
-    <input type="hidden" name="userId" value="@Model.UserId" />
+    <input type="hidden" name="userId" value="@Html.Encode(Model.UserId)" />
 
     @foreach (var moduleGroup in Model.PermissionsByModule)
     {

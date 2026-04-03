@@ -201,28 +201,27 @@ public class AdminController : Controller
         if (role == null) return NotFound();
 
         var allPerms = await _permissionService.GetAllPermissionsAsync();
-        var currentlyGranted = (await _permissionService.GetRolePermissionsAsync(roleId)).Select(p => p.Id).ToHashSet();
-        var newGranted = (grantedPermissionIds ?? new List<int>()).ToHashSet();
+        var currentIds = (await _permissionService.GetRolePermissionsAsync(roleId)).Select(p => p.Id).ToHashSet();
+        var newIds = (grantedPermissionIds ?? new List<int>()).ToHashSet();
+
+        // Bulk update in a single transaction
+        await _permissionService.BulkUpdateRolePermissionsAsync(roleId, newIds);
 
         var actorId = _userManager.GetUserId(User)!;
+        var ipAddress = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
 
-        foreach (var perm in allPerms)
-        {
-            if (newGranted.Contains(perm.Id) && !currentlyGranted.Contains(perm.Id))
-            {
-                await _permissionService.AssignPermissionToRoleAsync(roleId, perm.Id);
-                await _auditService.LogAsync(actorId, "GrantPermission", "RolePermission", null,
-                    newValues: $"Role={role.Name}, Permission={perm.Name}",
-                    ipAddress: _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString());
-            }
-            else if (!newGranted.Contains(perm.Id) && currentlyGranted.Contains(perm.Id))
-            {
-                await _permissionService.RevokePermissionFromRoleAsync(roleId, perm.Id);
-                await _auditService.LogAsync(actorId, "RevokePermission", "RolePermission", null,
-                    oldValues: $"Role={role.Name}, Permission={perm.Name}",
-                    ipAddress: _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString());
-            }
-        }
+        var granted = allPerms.Where(p => newIds.Contains(p.Id) && !currentIds.Contains(p.Id)).Select(p => p.Name);
+        var revoked = allPerms.Where(p => !newIds.Contains(p.Id) && currentIds.Contains(p.Id)).Select(p => p.Name);
+
+        if (granted.Any())
+            await _auditService.LogAsync(actorId, "GrantPermissions", "RolePermission", null,
+                newValues: $"Role={role.Name}, Granted=[{string.Join(",", granted)}]",
+                ipAddress: ipAddress);
+
+        if (revoked.Any())
+            await _auditService.LogAsync(actorId, "RevokePermissions", "RolePermission", null,
+                oldValues: $"Role={role.Name}, Revoked=[{string.Join(",", revoked)}]",
+                ipAddress: ipAddress);
 
         TempData["Success"] = $"Permissions for role '{role.Name}' updated.";
         return RedirectToAction(nameof(Roles));
@@ -255,23 +254,11 @@ public class AdminController : Controller
         var user = await _userManager.FindByIdAsync(userId);
         if (user == null) return NotFound();
 
-        var allPerms = await _permissionService.GetAllPermissionsAsync();
         var granted = (grantedPermissionIds ?? new List<int>()).ToHashSet();
         var actorId = _userManager.GetUserId(User)!;
 
-        // Remove all existing overrides and reapply only those that differ from the role-inherited value
-        foreach (var perm in allPerms)
-        {
-            await _permissionService.RemoveUserPermissionOverrideAsync(userId, perm.Id);
-        }
-
-        foreach (var perm in allPerms)
-        {
-            if (granted.Contains(perm.Id))
-            {
-                await _permissionService.SetUserPermissionOverrideAsync(userId, perm.Id, true);
-            }
-        }
+        // Bulk replace all overrides in a single DB round-trip
+        await _permissionService.ReplaceUserPermissionOverridesAsync(userId, granted);
 
         await _auditService.LogAsync(actorId, "UpdateUserPermissionOverrides", "UserPermissionOverride", userId,
             newValues: string.Join(",", granted),
