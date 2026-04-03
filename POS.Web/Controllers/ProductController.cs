@@ -84,6 +84,27 @@ public class ProductController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost, ValidateAntiForgeryToken, PermissionAuthorize("products.edit")]
+    public async Task<IActionResult> AddVariant(ProductVariant variant)
+    {
+        ModelState.Remove("Product");
+        if (ModelState.IsValid)
+        {
+            _db.ProductVariants.Add(variant);
+            await _db.SaveChangesAsync();
+            TempData["Success"] = "Variant added.";
+        }
+        return RedirectToAction(nameof(Details), new { id = variant.ProductId });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, PermissionAuthorize("products.edit")]
+    public async Task<IActionResult> DeleteVariant(int id, int productId)
+    {
+        var variant = await _db.ProductVariants.FindAsync(id);
+        if (variant != null) { _db.ProductVariants.Remove(variant); await _db.SaveChangesAsync(); TempData["Success"] = "Variant removed."; }
+        return RedirectToAction(nameof(Details), new { id = productId });
+    }
+
     [HttpGet]
     public async Task<IActionResult> Search(string q)
     {

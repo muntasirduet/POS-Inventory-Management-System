@@ -35,6 +35,9 @@ public class DashboardService
         if (branchId.HasValue) lowStockQuery = lowStockQuery.Where(s => s.BranchId == branchId.Value);
         var lowStock = await lowStockQuery.Take(10).Select(s => new LowStockDto { ProductId = s.ProductId, ProductName = s.Product.Name, QtyOnHand = s.QtyOnHand, ReorderLevel = s.ReorderLevel, BranchName = s.Branch.Name }).ToListAsync();
 
-        return new DashboardDto { TodayRevenue = todayRevenue, TodayTransactions = todayCount, AvgOrderValue = todayCount > 0 ? todayRevenue / todayCount : 0, TopProduct = topProduct, DailySales = dailySales, LowStockItems = lowStock };
+        var activeProducts = await _db.Products.CountAsync(p => p.IsActive);
+        var pendingPOs = await _db.PurchaseOrders.CountAsync(po => po.Status == POS.Core.Enums.PurchaseOrderStatus.Draft || po.Status == POS.Core.Enums.PurchaseOrderStatus.Ordered);
+
+        return new DashboardDto { TodayRevenue = todayRevenue, TodayTransactions = todayCount, AvgOrderValue = todayCount > 0 ? todayRevenue / todayCount : 0, TopProduct = topProduct, DailySales = dailySales, LowStockItems = lowStock, ActiveProducts = activeProducts, PendingPurchaseOrders = pendingPOs };
     }
 }

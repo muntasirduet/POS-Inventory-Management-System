@@ -40,20 +40,55 @@
             <div class="sidebar p-2">
                 <ul class="nav flex-column">
                     <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Home"?"active":"")" href="/"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
-                    <div class="section-title">Sales</div>
-                    <li><a class="nav-link" asp-controller="Sale" asp-action="Create"><i class="bi bi-cash-register"></i> POS Terminal</a></li>
-                    <li><a class="nav-link" asp-controller="Sale" asp-action="Index"><i class="bi bi-receipt"></i> Sales History</a></li>
-                    <div class="section-title">Catalog</div>
-                    <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Product"?"active":"")" asp-controller="Product" asp-action="Index"><i class="bi bi-box-seam"></i> Products</a></li>
-                    <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Category"?"active":"")" asp-controller="Category" asp-action="Index"><i class="bi bi-tags"></i> Categories</a></li>
-                    <div class="section-title">Inventory</div>
-                    <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Inventory"?"active":"")" asp-controller="Inventory" asp-action="Index"><i class="bi bi-boxes"></i> Stock Levels</a></li>
-                    <li><a class="nav-link" asp-controller="Inventory" asp-action="LowStock"><i class="bi bi-exclamation-triangle"></i> Low Stock</a></li>
-                    <li><a class="nav-link" asp-controller="Inventory" asp-action="PurchaseOrders"><i class="bi bi-cart-plus"></i> Purchase Orders</a></li>
-                    <div class="section-title">Customers</div>
-                    <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Customer"?"active":"")" asp-controller="Customer" asp-action="Index"><i class="bi bi-people"></i> Customers</a></li>
-                    <div class="section-title">Reports</div>
-                    <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Report"?"active":"")" asp-controller="Report" asp-action="Index"><i class="bi bi-bar-chart"></i> Reports</a></li>
+                    @if (User.HasClaim("permission", "sales.create") || User.HasClaim("permission", "sales.view"))
+                    {
+                        <div class="section-title">Sales</div>
+                        @if (User.HasClaim("permission", "sales.create"))
+                        {
+                            <li><a class="nav-link" asp-controller="Sale" asp-action="Create"><i class="bi bi-cash-register"></i> POS Terminal</a></li>
+                        }
+                        @if (User.HasClaim("permission", "sales.view"))
+                        {
+                            <li><a class="nav-link" asp-controller="Sale" asp-action="Index"><i class="bi bi-receipt"></i> Sales History</a></li>
+                        }
+                    }
+                    @if (User.HasClaim("permission", "products.view") || User.HasClaim("permission", "categories.view"))
+                    {
+                        <div class="section-title">Catalog</div>
+                        @if (User.HasClaim("permission", "products.view"))
+                        {
+                            <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Product"?"active":"")" asp-controller="Product" asp-action="Index"><i class="bi bi-box-seam"></i> Products</a></li>
+                        }
+                        @if (User.HasClaim("permission", "categories.view"))
+                        {
+                            <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Category"?"active":"")" asp-controller="Category" asp-action="Index"><i class="bi bi-tags"></i> Categories</a></li>
+                        }
+                    }
+                    @if (User.HasClaim("permission", "inventory.view"))
+                    {
+                        <div class="section-title">Inventory</div>
+                        <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Inventory"?"active":"")" asp-controller="Inventory" asp-action="Index"><i class="bi bi-boxes"></i> Stock Levels</a></li>
+                        <li><a class="nav-link" asp-controller="Inventory" asp-action="LowStock"><i class="bi bi-exclamation-triangle"></i> Low Stock</a></li>
+                        <li><a class="nav-link" asp-controller="Inventory" asp-action="Movements"><i class="bi bi-arrow-repeat"></i> Movements</a></li>
+                        @if (User.HasClaim("permission", "inventory.purchase"))
+                        {
+                            <li><a class="nav-link" asp-controller="Inventory" asp-action="PurchaseOrders"><i class="bi bi-cart-plus"></i> Purchase Orders</a></li>
+                        }
+                        @if (User.HasClaim("permission", "suppliers.view"))
+                        {
+                            <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Supplier"?"active":"")" asp-controller="Supplier" asp-action="Index"><i class="bi bi-truck"></i> Suppliers</a></li>
+                        }
+                    }
+                    @if (User.HasClaim("permission", "customers.view"))
+                    {
+                        <div class="section-title">Customers</div>
+                        <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Customer"?"active":"")" asp-controller="Customer" asp-action="Index"><i class="bi bi-people"></i> Customers</a></li>
+                    }
+                    @if (User.HasClaim("permission", "reports.view"))
+                    {
+                        <div class="section-title">Reports</div>
+                        <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Report"?"active":"")" asp-controller="Report" asp-action="Index"><i class="bi bi-bar-chart"></i> Reports</a></li>
+                    }
                     @if (User.IsInRole("SuperAdmin") || User.IsInRole("StoreOwner"))
                     {
                         <div class="section-title">Admin</div>

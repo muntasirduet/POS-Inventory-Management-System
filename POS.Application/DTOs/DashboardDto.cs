@@ -7,6 +7,8 @@ public class DashboardDto
     public string TopProduct { get; set; } = string.Empty;
     public List<DailySalesDto> DailySales { get; set; } = new();
     public List<LowStockDto> LowStockItems { get; set; } = new();
+    public int ActiveProducts { get; set; }
+    public int PendingPurchaseOrders { get; set; }
 }
 public class DailySalesDto
 {

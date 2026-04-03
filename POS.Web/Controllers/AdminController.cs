@@ -52,8 +52,7 @@ public class AdminController : Controller
 
     public async Task<IActionResult> CreateUser()
     {
-        ViewBag.Roles = new SelectList(await _roleManager.Roles.ToListAsync(), "Name", "Name");
-        ViewBag.Branches = new SelectList(await _db.Branches.ToListAsync(), "Id", "Name");
+        await PopulateUserViewBag();
         return View();
     }
 
@@ -278,7 +277,11 @@ public class AdminController : Controller
 
     private async Task PopulateUserViewBag()
     {
-        ViewBag.Roles = new SelectList(await _roleManager.Roles.ToListAsync(), "Name", "Name");
+        IQueryable<IdentityRole> rolesQuery = _roleManager.Roles;
+        // StoreOwners cannot assign SuperAdmin or StoreOwner roles — only lower roles
+        if (!User.IsInRole("SuperAdmin"))
+            rolesQuery = rolesQuery.Where(r => r.Name != "SuperAdmin" && r.Name != "StoreOwner");
+        ViewBag.Roles = new SelectList(await rolesQuery.ToListAsync(), "Name", "Name");
         ViewBag.Branches = new SelectList(await _db.Branches.ToListAsync(), "Id", "Name");
     }
 }

@@ -1,0 +1,94 @@
+@{ ViewData["Title"] = "Create Purchase Order"; }
+<h2><i class="bi bi-cart-plus"></i> Create Purchase Order</h2>
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form asp-action="CreatePurchaseOrder" method="post" id="poForm">
+            @Html.AntiForgeryToken()
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label">Supplier</label>
+                    <select name="SupplierId" class="form-select" required>
+                        <option value="">-- Select Supplier --</option>
+                        @foreach (var item in (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Suppliers)
+                        {
+                            <option value="@item.Value">@item.Text</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Branch</label>
+                    <select name="BranchId" class="form-select" required>
+                        <option value="">-- Select Branch --</option>
+                        @foreach (var item in (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Branches)
+                        {
+                            <option value="@item.Value">@item.Text</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Notes</label>
+                    <input type="text" name="Notes" class="form-control" placeholder="Optional notes" />
+                </div>
+            </div>
+
+            <h5 class="mb-3">Order Items</h5>
+            <table class="table table-bordered" id="itemsTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Product</th>
+                        <th style="width:120px">Qty</th>
+                        <th style="width:150px">Unit Cost ($)</th>
+                        <th style="width:80px"></th>
+                    </tr>
+                </thead>
+                <tbody id="itemsBody">
+                    <tr id="itemRow0">
+                        <td>
+                            <select name="productIds" class="form-select" required>
+                                <option value="">-- Select --</option>
+                                @foreach (var p in (List<POS.Core.Entities.Product>)ViewBag.Products)
+                                {
+                                    <option value="@p.Id">@p.Name (@p.SKU)</option>
+                                }
+                            </select>
+                        </td>
+                        <td><input type="number" name="qtys" class="form-control" min="1" value="1" required /></td>
+                        <td><input type="number" name="costs" class="form-control" step="0.01" min="0" value="0" required /></td>
+                        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                </tbody>
+            </table>
+            <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addRow()">
+                <i class="bi bi-plus-lg"></i> Add Item
+            </button>
+
+            <div class="mt-2">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Create Order</button>
+                <a asp-action="PurchaseOrders" class="btn btn-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+var rowCount = 1;
+var productOptions = `@Html.Raw(string.Join("", ((List<POS.Core.Entities.Product>)ViewBag.Products).Select(p => $"<option value='{p.Id}'>{System.Web.HttpUtility.HtmlEncode(p.Name)} ({System.Web.HttpUtility.HtmlEncode(p.SKU)})</option>")))`;
+
+function addRow() {
+    var tbody = document.getElementById('itemsBody');
+    var tr = document.createElement('tr');
+    tr.id = 'itemRow' + rowCount++;
+    tr.innerHTML = `<td><select name="productIds" class="form-select" required><option value="">-- Select --</option>${productOptions}</select></td>
+        <td><input type="number" name="qtys" class="form-control" min="1" value="1" required /></td>
+        <td><input type="number" name="costs" class="form-control" step="0.01" min="0" value="0" required /></td>
+        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>`;
+    tbody.appendChild(tr);
+}
+
+function removeRow(btn) {
+    var row = btn.closest('tr');
+    if (document.getElementById('itemsBody').rows.length > 1) row.remove();
+}
+</script>
+}

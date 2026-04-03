@@ -40,6 +40,11 @@ public static class DbSeeder
         ("reports.view",   "Reports", "View reports"),
         ("reports.export", "Reports", "Export reports"),
         ("reports.audit",  "Reports", "View audit logs"),
+        // Suppliers
+        ("suppliers.view",   "Suppliers", "View suppliers"),
+        ("suppliers.create", "Suppliers", "Create suppliers"),
+        ("suppliers.edit",   "Suppliers", "Edit suppliers"),
+        ("suppliers.delete", "Suppliers", "Delete suppliers"),
         // Admin
         ("users.manage",    "Admin", "Create/edit/deactivate users"),
         ("roles.manage",    "Admin", "Create roles and manage role permissions"),
@@ -58,6 +63,7 @@ public static class DbSeeder
             "categories.view", "categories.create", "categories.edit", "categories.delete",
             "sales.view", "sales.create", "sales.void",
             "inventory.view", "inventory.adjust", "inventory.transfer", "inventory.purchase",
+            "suppliers.view", "suppliers.create", "suppliers.edit", "suppliers.delete",
             "customers.view", "customers.create", "customers.edit", "customers.delete",
             "reports.view", "reports.export", "reports.audit",
             "users.manage", "branches.manage", "settings.manage",
@@ -69,6 +75,7 @@ public static class DbSeeder
             "categories.view", "categories.create", "categories.edit",
             "sales.view", "sales.create",
             "inventory.view", "inventory.adjust", "inventory.transfer", "inventory.purchase",
+            "suppliers.view", "suppliers.create", "suppliers.edit",
             "customers.view", "customers.create", "customers.edit",
             "reports.view", "reports.export",
         },
@@ -86,6 +93,7 @@ public static class DbSeeder
             "products.view", "products.create", "products.edit",
             "categories.view",
             "inventory.view", "inventory.adjust", "inventory.transfer", "inventory.purchase",
+            "suppliers.view", "suppliers.create", "suppliers.edit",
         },
 
         ["Accountant"] = new[]
@@ -111,6 +119,15 @@ public static class DbSeeder
             var admin = new ApplicationUser { UserName = adminEmail, Email = adminEmail, FullName = "Super Admin", EmailConfirmed = true, IsActive = true };
             var result = await userManager.CreateAsync(admin, "Admin@123456");
             if (result.Succeeded) await userManager.AddToRoleAsync(admin, "SuperAdmin");
+        }
+
+        // Seed default store owner
+        const string ownerEmail = "storeowner@pos.com";
+        if (await userManager.FindByEmailAsync(ownerEmail) == null)
+        {
+            var owner = new ApplicationUser { UserName = ownerEmail, Email = ownerEmail, FullName = "Store Owner", EmailConfirmed = true, IsActive = true };
+            var ownerResult = await userManager.CreateAsync(owner, "Owner@123456");
+            if (ownerResult.Succeeded) await userManager.AddToRoleAsync(owner, "StoreOwner");
         }
 
         // Seed permissions

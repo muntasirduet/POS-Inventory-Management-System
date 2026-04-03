@@ -1,0 +1,46 @@
+@model List<POS.Application.DTOs.LowStockDto>
+@{ ViewData["Title"] = "Low Stock Items"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-exclamation-triangle text-warning"></i> Low Stock Items</h2>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> All Stock</a>
+</div>
+@if (!Model.Any())
+{
+    <div class="alert alert-success"><i class="bi bi-check-circle"></i> All products are above their reorder levels.</div>
+}
+else
+{
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover mb-0">
+                <thead class="table-warning">
+                    <tr>
+                        <th>Product</th>
+                        <th>Branch</th>
+                        <th class="text-end">Qty On Hand</th>
+                        <th class="text-end">Reorder Level</th>
+                        <th class="text-end">Deficit</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td><strong>@item.ProductName</strong></td>
+                            <td>@item.BranchName</td>
+                            <td class="text-end text-danger fw-bold">@item.QtyOnHand</td>
+                            <td class="text-end">@item.ReorderLevel</td>
+                            <td class="text-end text-danger">@(item.ReorderLevel - item.QtyOnHand)</td>
+                            <td>
+                                <a asp-action="CreatePurchaseOrder" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-cart-plus"></i> Reorder
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

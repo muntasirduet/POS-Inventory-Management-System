@@ -1,0 +1,45 @@
+@{ ViewData["Title"] = "Transfer Stock"; }
+<h2><i class="bi bi-arrow-left-right"></i> Transfer Stock Between Branches</h2>
+<div class="card shadow-sm" style="max-width:520px;">
+    <div class="card-body">
+        <form asp-action="Transfer" method="post">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label">Product</label>
+                <select name="productId" class="form-select" required>
+                    <option value="">-- Select Product --</option>
+                    @foreach (var item in (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Products)
+                    {
+                        <option value="@item.Value">@item.Text</option>
+                    }
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">From Branch</label>
+                <select name="fromBranchId" class="form-select" required>
+                    <option value="">-- Select Source Branch --</option>
+                    @foreach (var item in (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Branches)
+                    {
+                        <option value="@item.Value">@item.Text</option>
+                    }
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">To Branch</label>
+                <select name="toBranchId" class="form-select" required>
+                    <option value="">-- Select Destination Branch --</option>
+                    @foreach (var item in (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Branches)
+                    {
+                        <option value="@item.Value">@item.Text</option>
+                    }
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Quantity to Transfer</label>
+                <input type="number" name="qty" class="form-control" min="1" required />
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i> Transfer</button>
+            <a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,59 @@
+@model List<POS.Core.Entities.Supplier>
+@{ ViewData["Title"] = "Suppliers"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-truck"></i> Suppliers</h2>
+    <a asp-action="Create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Add Supplier</a>
+</div>
+<div class="card mb-3 shadow-sm">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-md-4">
+                <input type="text" name="search" value="@ViewBag.Search" class="form-control" placeholder="Search by name, email or phone…" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary btn-sm">Search</button>
+                @if (!string.IsNullOrWhiteSpace(ViewBag.Search as string))
+                {
+                    <a asp-action="Index" class="btn btn-outline-secondary btn-sm ms-1">Clear</a>
+                }
+            </div>
+        </form>
+    </div>
+</div>
+<div class="card shadow-sm">
+    <div class="card-body">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Address</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in Model)
+                {
+                    <tr>
+                        <td><strong>@s.Name</strong></td>
+                        <td>@(s.Email ?? "—")</td>
+                        <td>@(s.Phone ?? "—")</td>
+                        <td><small class="text-muted">@(s.Address ?? "—")</small></td>
+                        <td class="text-end">
+                            <a asp-action="Edit" asp-route-id="@s.Id" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
+                            <form method="post" asp-action="Delete" asp-route-id="@s.Id" class="d-inline" onsubmit="return confirm('Delete supplier?')">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="5" class="text-center text-muted py-4">No suppliers found.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
