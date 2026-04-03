@@ -60,6 +60,10 @@
                         <li><a class="nav-link" asp-controller="Admin" asp-action="Users"><i class="bi bi-person-gear"></i> Users</a></li>
                         <li><a class="nav-link" asp-controller="Admin" asp-action="Branches"><i class="bi bi-shop"></i> Branches</a></li>
                         <li><a class="nav-link" asp-controller="Admin" asp-action="Settings"><i class="bi bi-gear"></i> Settings</a></li>
+                        @if (User.IsInRole("SuperAdmin"))
+                        {
+                            <li><a class="nav-link" asp-controller="Admin" asp-action="Roles"><i class="bi bi-shield-lock"></i> Roles &amp; Permissions</a></li>
+                        }
                     }
                     <div class="section-title">Account</div>
                     <li><a class="nav-link" asp-controller="Account" asp-action="ChangePassword"><i class="bi bi-key"></i> Change Password</a></li>

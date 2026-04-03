@@ -9,14 +9,102 @@ public static class DbSeeder
 {
     public static readonly string[] Roles = { "SuperAdmin", "StoreOwner", "StoreManager", "Cashier", "InventoryManager", "Accountant" };
 
+    // All granular permission names grouped by module
+    private static readonly (string Name, string Module, string Description)[] PermissionDefinitions =
+    {
+        // Products
+        ("products.view",    "Products", "View products"),
+        ("products.create",  "Products", "Create products"),
+        ("products.edit",    "Products", "Edit products"),
+        ("products.delete",  "Products", "Delete products"),
+        // Categories
+        ("categories.view",   "Categories", "View categories"),
+        ("categories.create", "Categories", "Create categories"),
+        ("categories.edit",   "Categories", "Edit categories"),
+        ("categories.delete", "Categories", "Delete categories"),
+        // Sales
+        ("sales.view",   "Sales", "View sales"),
+        ("sales.create", "Sales", "Create sales"),
+        ("sales.void",   "Sales", "Void/delete sales"),
+        // Inventory
+        ("inventory.view",     "Inventory", "View stock levels"),
+        ("inventory.adjust",   "Inventory", "Adjust stock"),
+        ("inventory.transfer", "Inventory", "Transfer stock between branches"),
+        ("inventory.purchase", "Inventory", "Create purchase orders"),
+        // Customers
+        ("customers.view",   "Customers", "View customers"),
+        ("customers.create", "Customers", "Create customers"),
+        ("customers.edit",   "Customers", "Edit customers"),
+        ("customers.delete", "Customers", "Delete customers"),
+        // Reports
+        ("reports.view",   "Reports", "View reports"),
+        ("reports.export", "Reports", "Export reports"),
+        ("reports.audit",  "Reports", "View audit logs"),
+        // Admin
+        ("users.manage",    "Admin", "Create/edit/deactivate users"),
+        ("roles.manage",    "Admin", "Create roles and manage role permissions"),
+        ("branches.manage", "Admin", "Create and manage branches"),
+        ("settings.manage", "Admin", "Manage system settings"),
+    };
+
+    // Role → list of permission names
+    private static readonly Dictionary<string, string[]> RolePermissionMatrix = new()
+    {
+        ["SuperAdmin"] = PermissionDefinitions.Select(p => p.Name).ToArray(),
+
+        ["StoreOwner"] = new[]
+        {
+            "products.view", "products.create", "products.edit", "products.delete",
+            "categories.view", "categories.create", "categories.edit", "categories.delete",
+            "sales.view", "sales.create", "sales.void",
+            "inventory.view", "inventory.adjust", "inventory.transfer", "inventory.purchase",
+            "customers.view", "customers.create", "customers.edit", "customers.delete",
+            "reports.view", "reports.export", "reports.audit",
+            "users.manage", "branches.manage", "settings.manage",
+        },
+
+        ["StoreManager"] = new[]
+        {
+            "products.view", "products.create", "products.edit",
+            "categories.view", "categories.create", "categories.edit",
+            "sales.view", "sales.create",
+            "inventory.view", "inventory.adjust", "inventory.transfer", "inventory.purchase",
+            "customers.view", "customers.create", "customers.edit",
+            "reports.view", "reports.export",
+        },
+
+        ["Cashier"] = new[]
+        {
+            "products.view",
+            "categories.view",
+            "sales.view", "sales.create",
+            "customers.view", "customers.create", "customers.edit",
+        },
+
+        ["InventoryManager"] = new[]
+        {
+            "products.view", "products.create", "products.edit",
+            "categories.view",
+            "inventory.view", "inventory.adjust", "inventory.transfer", "inventory.purchase",
+        },
+
+        ["Accountant"] = new[]
+        {
+            "sales.view",
+            "reports.view", "reports.export", "reports.audit",
+        },
+    };
+
     public static async Task SeedAsync(AppDbContext context, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
     {
         await context.Database.MigrateAsync();
 
+        // Seed roles
         foreach (var role in Roles)
             if (!await roleManager.RoleExistsAsync(role))
                 await roleManager.CreateAsync(new IdentityRole(role));
 
+        // Seed default admin
         const string adminEmail = "admin@pos.com";
         if (await userManager.FindByEmailAsync(adminEmail) == null)
         {
@@ -24,6 +112,33 @@ public static class DbSeeder
             var result = await userManager.CreateAsync(admin, "Admin@123456");
             if (result.Succeeded) await userManager.AddToRoleAsync(admin, "SuperAdmin");
         }
+
+        // Seed permissions
+        foreach (var (name, module, description) in PermissionDefinitions)
+        {
+            if (!await context.Permissions.AnyAsync(p => p.Name == name))
+                context.Permissions.Add(new Permission { Name = name, Module = module, Description = description });
+        }
+        await context.SaveChangesAsync();
+
+        // Seed role-permission assignments
+        var allPermissions = await context.Permissions.ToListAsync();
+        var permLookup = allPermissions.ToDictionary(p => p.Name);
+
+        foreach (var (roleName, permNames) in RolePermissionMatrix)
+        {
+            var role = await roleManager.FindByNameAsync(roleName);
+            if (role == null) continue;
+
+            foreach (var permName in permNames)
+            {
+                if (!permLookup.TryGetValue(permName, out var perm)) continue;
+                var exists = await context.RolePermissions.AnyAsync(rp => rp.RoleId == role.Id && rp.PermissionId == perm.Id);
+                if (!exists)
+                    context.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = perm.Id });
+            }
+        }
+        await context.SaveChangesAsync();
 
         if (!await context.TaxRates.AnyAsync())
         {
