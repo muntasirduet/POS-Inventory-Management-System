@@ -4,10 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 using POS.Application.Services;
 using POS.Infrastructure.Data;
+using POS.Web.Authorization;
 
 namespace POS.Web.Controllers;
 
-[Authorize(Roles = "SuperAdmin,StoreOwner,StoreManager,Accountant")]
+[Authorize]
 public class ReportController : Controller
 {
     private readonly ReportService _reportService;
@@ -19,8 +20,10 @@ public class ReportController : Controller
         ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
     }
 
+    [PermissionAuthorize("reports.view")]
     public IActionResult Index() => View();
 
+    [PermissionAuthorize("reports.view")]
     public async Task<IActionResult> Sales(DateTime? from, DateTime? to, int? branchId)
     {
         var report = await _reportService.GetSalesReportAsync(from ?? DateTime.Today.AddDays(-30), to ?? DateTime.Today, branchId);
@@ -29,11 +32,13 @@ public class ReportController : Controller
         return View(report);
     }
 
+    [PermissionAuthorize("reports.view")]
     public async Task<IActionResult> Inventory(int? branchId)
     {
         return View(await _reportService.GetInventoryReportAsync(branchId));
     }
 
+    [PermissionAuthorize("reports.audit")]
     public async Task<IActionResult> AuditLogs(string? userId, string? entityType, int page = 1)
     {
         int pageSize = 50;
@@ -47,6 +52,7 @@ public class ReportController : Controller
         return View(logs);
     }
 
+    [PermissionAuthorize("reports.export")]
     public async Task<IActionResult> ExportSalesExcel(DateTime? from, DateTime? to, int? branchId)
     {
         var report = await _reportService.GetSalesReportAsync(from ?? DateTime.Today.AddDays(-30), to ?? DateTime.Today, branchId);
@@ -65,6 +71,7 @@ public class ReportController : Controller
         return File(package.GetAsByteArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "SalesReport.xlsx");
     }
 
+    [PermissionAuthorize("reports.export")]
     public async Task<IActionResult> ExportInventoryExcel(int? branchId)
     {
         var report = await _reportService.GetInventoryReportAsync(branchId);

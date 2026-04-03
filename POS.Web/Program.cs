@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using POS.Application.Services;
 using POS.Infrastructure.Data;
 using POS.Infrastructure.Identity;
+using POS.Web.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +34,12 @@ builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<AuditService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+
+// Permission-based authorization
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, DynamicPermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, BranchResourceAuthorizationHandler>();
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddSession(options =>

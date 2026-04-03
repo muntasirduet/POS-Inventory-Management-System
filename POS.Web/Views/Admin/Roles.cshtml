@@ -1,0 +1,45 @@
+@model IEnumerable<Microsoft.AspNetCore.Identity.IdentityRole>
+@{
+    ViewData["Title"] = "Roles";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-shield-lock"></i> Roles</h4>
+    @if (User.IsInRole("SuperAdmin"))
+    {
+        <a asp-action="CreateRole" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Create Role</a>
+    }
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Role Name</th>
+                    @if (User.IsInRole("SuperAdmin"))
+                    {
+                        <th class="text-end">Actions</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var role in Model)
+                {
+                    <tr>
+                        <td><i class="bi bi-person-badge me-1 text-secondary"></i> @role.Name</td>
+                        @if (User.IsInRole("SuperAdmin"))
+                        {
+                            <td class="text-end">
+                                <a asp-action="RolePermissions" asp-route-roleId="@role.Id"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-key"></i> Manage Permissions
+                                </a>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

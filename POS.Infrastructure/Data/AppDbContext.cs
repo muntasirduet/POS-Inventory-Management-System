@@ -39,6 +39,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<SystemConfig> SystemConfigs => Set<SystemConfig>();
     public DbSet<Currency> Currencies => Set<Currency>();
     public DbSet<ReceiptTemplate> ReceiptTemplates => Set<ReceiptTemplate>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<UserPermissionOverride> UserPermissionOverrides => Set<UserPermissionOverride>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -115,6 +118,21 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Employee>()
             .HasOne(e => e.Branch).WithMany()
             .HasForeignKey(e => e.BranchId).OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<Permission>()
+            .HasIndex(p => p.Name).IsUnique();
+
+        builder.Entity<RolePermission>()
+            .HasKey(rp => new { rp.RoleId, rp.PermissionId });
+        builder.Entity<RolePermission>()
+            .HasOne(rp => rp.Permission).WithMany(p => p.RolePermissions)
+            .HasForeignKey(rp => rp.PermissionId).OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<UserPermissionOverride>()
+            .HasKey(upo => new { upo.UserId, upo.PermissionId });
+        builder.Entity<UserPermissionOverride>()
+            .HasOne(upo => upo.Permission).WithMany(p => p.UserOverrides)
+            .HasForeignKey(upo => upo.PermissionId).OnDelete(DeleteBehavior.Cascade);
     }
 
     public override int SaveChanges()

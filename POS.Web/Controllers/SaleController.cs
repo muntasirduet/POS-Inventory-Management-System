@@ -6,10 +6,11 @@ using POS.Application.DTOs;
 using POS.Application.Services;
 using POS.Infrastructure.Data;
 using POS.Infrastructure.Identity;
+using POS.Web.Authorization;
 
 namespace POS.Web.Controllers;
 
-[Authorize(Roles = "SuperAdmin,StoreOwner,StoreManager,Cashier")]
+[Authorize]
 public class SaleController : Controller
 {
     private readonly SaleService _saleService;
@@ -21,6 +22,7 @@ public class SaleController : Controller
         _saleService = saleService; _db = db; _userManager = userManager;
     }
 
+    [PermissionAuthorize("sales.create")]
     public async Task<IActionResult> Create()
     {
         ViewBag.Products = await _db.Products.Include(p => p.TaxRate).Where(p => p.IsActive).ToListAsync();
@@ -29,7 +31,7 @@ public class SaleController : Controller
         return View();
     }
 
-    [HttpPost]
+    [HttpPost, PermissionAuthorize("sales.create")]
     public async Task<IActionResult> Complete([FromBody] CompleteSaleRequest request)
     {
         try
@@ -41,7 +43,7 @@ public class SaleController : Controller
         catch (Exception ex) { return Json(new { success = false, message = ex.Message }); }
     }
 
-    [HttpPost]
+    [HttpPost, PermissionAuthorize("sales.create")]
     public async Task<IActionResult> Hold([FromBody] HoldSaleRequest request)
     {
         var user = await _userManager.GetUserAsync(User);
@@ -49,7 +51,7 @@ public class SaleController : Controller
         return Json(new { success = true, saleId = sale.Id });
     }
 
-    [HttpGet]
+    [HttpGet, PermissionAuthorize("sales.create")]
     public async Task<IActionResult> HeldSales()
     {
         var user = await _userManager.GetUserAsync(User);
@@ -57,6 +59,7 @@ public class SaleController : Controller
         return Json(sales);
     }
 
+    [PermissionAuthorize("sales.view")]
     public async Task<IActionResult> Receipt(int id)
     {
         var sale = await _saleService.GetSaleAsync(id);
@@ -69,6 +72,7 @@ public class SaleController : Controller
         return View(sale);
     }
 
+    [PermissionAuthorize("sales.view")]
     public async Task<IActionResult> Index(DateTime? from, DateTime? to, string? cashierId)
     {
         var branchId = HttpContext.Session.GetInt32("BranchId");
@@ -78,6 +82,7 @@ public class SaleController : Controller
         return View(sales);
     }
 
+    [PermissionAuthorize("sales.view")]
     public async Task<IActionResult> Details(int id)
     {
         var sale = await _saleService.GetSaleAsync(id);
@@ -85,7 +90,7 @@ public class SaleController : Controller
         return View(sale);
     }
 
-    [HttpGet]
+    [HttpGet, PermissionAuthorize("sales.create")]
     public async Task<IActionResult> ValidateCoupon(string code)
     {
         var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.Code == code && !c.IsUsed && (c.ExpiresAt == null || c.ExpiresAt > DateTime.UtcNow));

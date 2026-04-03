@@ -1,0 +1,54 @@
+@model POS.Web.Models.ManageUserPermissionsViewModel
+@{
+    ViewData["Title"] = $"User Permissions – {Model.FullName ?? Model.UserName}";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-person-gear"></i> Permission Overrides for <strong>@(Model.FullName ?? Model.UserName)</strong></h4>
+    <a asp-action="Users" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Users</a>
+</div>
+
+<div class="alert alert-info small">
+    <i class="bi bi-info-circle"></i>
+    Permissions checked here are <strong>explicitly granted</strong> to this user (overriding or supplementing their role permissions).
+    Unchecked permissions revert to what the user's role(s) allow.
+</div>
+
+<form asp-action="UserPermissions" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="userId" value="@Html.Encode(Model.UserId)" />
+
+    @foreach (var moduleGroup in Model.PermissionsByModule)
+    {
+        <div class="card shadow-sm mb-3">
+            <div class="card-header fw-semibold text-uppercase small text-secondary">
+                <i class="bi bi-folder2-open me-1"></i>@(moduleGroup.Key ?? "General")
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    @foreach (var perm in moduleGroup)
+                    {
+                        <div class="col-md-4 col-sm-6 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       name="grantedPermissionIds"
+                                       value="@perm.Id"
+                                       id="uperm_@perm.Id"
+                                       @(perm.IsGranted ? "checked" : "") />
+                                <label class="form-check-label" for="uperm_@perm.Id">
+                                    <span class="badge bg-secondary me-1 font-monospace" style="font-size:.7rem">@perm.Name</span>
+                                    @perm.Description
+                                </label>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="d-flex gap-2 mt-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-floppy"></i> Save Overrides</button>
+        <a asp-action="Users" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>

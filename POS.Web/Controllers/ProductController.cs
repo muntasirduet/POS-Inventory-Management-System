@@ -5,10 +5,11 @@ using Microsoft.EntityFrameworkCore;
 using POS.Application.Services;
 using POS.Core.Entities;
 using POS.Infrastructure.Data;
+using POS.Web.Authorization;
 
 namespace POS.Web.Controllers;
 
-[Authorize(Roles = "SuperAdmin,StoreOwner,StoreManager,InventoryManager")]
+[Authorize]
 public class ProductController : Controller
 {
     private readonly ProductService _productService;
@@ -20,6 +21,7 @@ public class ProductController : Controller
         _productService = productService; _db = db; _env = env;
     }
 
+    [PermissionAuthorize("products.view")]
     public async Task<IActionResult> Index(string? search)
     {
         var products = await _productService.GetAllAsync(search);
@@ -27,6 +29,7 @@ public class ProductController : Controller
         return View(products);
     }
 
+    [PermissionAuthorize("products.view")]
     public async Task<IActionResult> Details(int id)
     {
         var product = await _productService.GetByIdAsync(id);
@@ -34,13 +37,14 @@ public class ProductController : Controller
         return View(product);
     }
 
+    [PermissionAuthorize("products.create")]
     public async Task<IActionResult> Create()
     {
         await PopulateSelectLists();
         return View(new Product());
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [HttpPost, ValidateAntiForgeryToken, PermissionAuthorize("products.create")]
     public async Task<IActionResult> Create(Product product, IFormFile? imageFile)
     {
         ModelState.Remove("Category"); ModelState.Remove("TaxRate"); ModelState.Remove("Variants"); ModelState.Remove("SaleItems"); ModelState.Remove("StockItems");
@@ -51,6 +55,7 @@ public class ProductController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [PermissionAuthorize("products.edit")]
     public async Task<IActionResult> Edit(int id)
     {
         var product = await _productService.GetByIdAsync(id);
@@ -59,7 +64,7 @@ public class ProductController : Controller
         return View(product);
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [HttpPost, ValidateAntiForgeryToken, PermissionAuthorize("products.edit")]
     public async Task<IActionResult> Edit(int id, Product product, IFormFile? imageFile)
     {
         if (id != product.Id) return BadRequest();
@@ -71,7 +76,7 @@ public class ProductController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SuperAdmin,StoreOwner")]
+    [HttpPost, ValidateAntiForgeryToken, PermissionAuthorize("products.delete")]
     public async Task<IActionResult> Delete(int id)
     {
         await _productService.DeleteAsync(id);

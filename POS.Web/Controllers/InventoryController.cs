@@ -7,10 +7,11 @@ using POS.Application.Services;
 using POS.Core.Entities;
 using POS.Infrastructure.Data;
 using POS.Infrastructure.Identity;
+using POS.Web.Authorization;
 
 namespace POS.Web.Controllers;
 
-[Authorize(Roles = "SuperAdmin,StoreOwner,StoreManager,InventoryManager")]
+[Authorize]
 public class InventoryController : Controller
 {
     private readonly InventoryService _inventoryService;
@@ -22,18 +23,21 @@ public class InventoryController : Controller
         _inventoryService = inventoryService; _db = db; _userManager = userManager;
     }
 
+    [PermissionAuthorize("inventory.view")]
     public async Task<IActionResult> Index()
     {
         var branchId = HttpContext.Session.GetInt32("BranchId");
         return View(await _inventoryService.GetStockAsync(branchId));
     }
 
+    [PermissionAuthorize("inventory.view")]
     public async Task<IActionResult> LowStock()
     {
         var branchId = HttpContext.Session.GetInt32("BranchId");
         return View(await _inventoryService.GetLowStockAsync(branchId));
     }
 
+    [PermissionAuthorize("inventory.transfer")]
     public async Task<IActionResult> Transfer()
     {
         ViewBag.Products = new SelectList(await _db.Products.ToListAsync(), "Id", "Name");
@@ -41,7 +45,7 @@ public class InventoryController : Controller
         return View();
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [HttpPost, ValidateAntiForgeryToken, PermissionAuthorize("inventory.transfer")]
     public async Task<IActionResult> Transfer(int productId, int fromBranchId, int toBranchId, int qty)
     {
         try
@@ -54,6 +58,7 @@ public class InventoryController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [PermissionAuthorize("inventory.adjust")]
     public async Task<IActionResult> Adjust()
     {
         ViewBag.Products = new SelectList(await _db.Products.ToListAsync(), "Id", "Name");
@@ -61,7 +66,7 @@ public class InventoryController : Controller
         return View();
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [HttpPost, ValidateAntiForgeryToken, PermissionAuthorize("inventory.adjust")]
     public async Task<IActionResult> Adjust(int productId, int branchId, int qty, string notes)
     {
         var user = await _userManager.GetUserAsync(User);
@@ -70,6 +75,7 @@ public class InventoryController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [PermissionAuthorize("inventory.view")]
     public async Task<IActionResult> Movements()
     {
         var movements = await _db.StockMovements.Include(m => m.Product).Include(m => m.FromBranch).Include(m => m.ToBranch)
@@ -77,12 +83,14 @@ public class InventoryController : Controller
         return View(movements);
     }
 
+    [PermissionAuthorize("inventory.purchase")]
     public async Task<IActionResult> PurchaseOrders()
     {
         var orders = await _db.PurchaseOrders.Include(po => po.Supplier).Include(po => po.Branch).OrderByDescending(po => po.CreatedAt).ToListAsync();
         return View(orders);
     }
 
+    [PermissionAuthorize("inventory.purchase")]
     public async Task<IActionResult> CreatePurchaseOrder()
     {
         ViewBag.Suppliers = new SelectList(await _db.Suppliers.ToListAsync(), "Id", "Name");
@@ -91,7 +99,7 @@ public class InventoryController : Controller
         return View();
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [HttpPost, ValidateAntiForgeryToken, PermissionAuthorize("inventory.purchase")]
     public async Task<IActionResult> CreatePurchaseOrder(PurchaseOrder order, List<int> productIds, List<int> qtys, List<decimal> costs)
     {
         ModelState.Remove("Supplier"); ModelState.Remove("Branch"); ModelState.Remove("Items");
