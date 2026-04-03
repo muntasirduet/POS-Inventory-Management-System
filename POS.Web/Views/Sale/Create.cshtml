@@ -1,0 +1,70 @@
+@{ ViewData["Title"] = "POS Terminal"; }
+<div class="row g-0" style="height:calc(100vh - 80px)">
+<div class="col-md-7 border-end p-3 overflow-auto">
+    <div class="mb-3"><div class="input-group"><span class="input-group-text"><i class="bi bi-upc-scan"></i></span><input type="text" id="barcodeInput" class="form-control form-control-lg" placeholder="Scan barcode or search..." autofocus/><button class="btn btn-primary" onclick="searchProduct()"><i class="bi bi-search"></i></button></div></div>
+    <div id="productResults" class="row g-2"></div>
+</div>
+<div class="col-md-5 d-flex flex-column bg-light">
+    <div class="p-3 border-bottom"><div class="d-flex justify-content-between align-items-center"><h5 class="mb-0"><i class="bi bi-cart3"></i> Cart</h5>
+    <select id="customerSelect" class="form-select form-select-sm d-inline-block" style="width:auto"><option value="">Walk-in</option>
+    @foreach(var c in ViewBag.Customers as List<POS.Core.Entities.Customer>??new()){<option value="@c.Id">@c.Name</option>}
+    </select></div></div>
+    <div id="cartItems" class="flex-grow-1 overflow-auto p-3"></div>
+    <div class="p-3 border-top bg-white">
+        <div class="row mb-2">
+            <div class="col-6">Subtotal:</div><div class="col-6 text-end fw-bold" id="subtotal">$0.00</div>
+            <div class="col-6">Tax:</div><div class="col-6 text-end" id="taxDisplay">$0.00</div>
+            <div class="col-6">Discount:</div><div class="col-6 text-end"><input type="number" id="discountInput" class="form-control form-control-sm text-end" value="0" min="0" step="0.01" style="width:100px;display:inline-block" onchange="updateTotals()"/></div>
+            <div class="col-6"><strong>TOTAL:</strong></div><div class="col-6 text-end fs-4 fw-bold text-success" id="totalDisplay">$0.00</div>
+        </div>
+        <div class="mb-2"><div class="input-group input-group-sm"><input type="text" id="couponCode" class="form-control" placeholder="Coupon code"/><button class="btn btn-outline-secondary" onclick="applyCoupon()">Apply</button></div><small id="couponMsg" class="text-muted"></small></div>
+        <div class="d-grid gap-2">
+            <button class="btn btn-success btn-lg" onclick="openPayment()"><i class="bi bi-credit-card"></i> Pay</button>
+            <div class="row g-2"><div class="col-6"><button class="btn btn-warning w-100" onclick="holdSale()"><i class="bi bi-pause-circle"></i> Hold</button></div><div class="col-6"><button class="btn btn-outline-secondary w-100" onclick="loadHeld()"><i class="bi bi-arrow-clockwise"></i> Recall</button></div></div>
+            <button class="btn btn-outline-danger btn-sm" onclick="clearCart()">Clear Cart</button>
+        </div>
+    </div>
+</div></div>
+
+<div class="modal fade" id="paymentModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">Process Payment</h5></div>
+<div class="modal-body">
+    <p>Total: <strong id="modalTotal" class="text-success fs-4">$0.00</strong></p>
+    <div class="mb-3"><label class="form-label">Method</label><select id="payMethod" class="form-select" onchange="onMethodChange()"><option value="0">Cash</option><option value="1">Card</option><option value="2">Mobile Wallet</option><option value="3">QR</option></select></div>
+    <div class="mb-3"><label class="form-label">Amount</label><input type="number" id="payAmount" class="form-control" step="0.01" oninput="calcChange()"/></div>
+    <div id="changeRow" class="mb-3"><label class="form-label">Change</label><input type="text" id="changeDisplay" class="form-control" readonly/></div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success" onclick="completeSale()"><i class="bi bi-check-lg"></i> Complete</button></div>
+</div></div></div>
+
+<div class="modal fade" id="heldModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">Held Sales</h5></div>
+<div class="modal-body" id="heldSalesList"></div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+</div></div></div>
+
+@section Scripts {
+<script>
+let cart=[],appliedCoupon=null;
+const branchId=@(ViewBag.BranchId?.ToString()??"null");
+document.getElementById('barcodeInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchProduct();}});
+async function searchProduct(){const q=document.getElementById('barcodeInput').value.trim();if(!q)return;try{const r=await fetch('/Product/ByBarcode?barcode='+encodeURIComponent(q));if(r.ok){addToCart(await r.json());document.getElementById('barcodeInput').value='';return;}}catch(e){}const r=await fetch('/Product/Search?q='+encodeURIComponent(q));const products=await r.json();document.getElementById('productResults').innerHTML=products.map(p=>`<div class="col-6 col-md-4"><div class="card card-body p-2 text-center" style="cursor:pointer" onclick='addToCart(${JSON.stringify(p)})'>${p.imageUrl?`<img src="${p.imageUrl}" class="img-fluid mb-1 rounded" style="height:50px;object-fit:cover">`:'<div class="bg-light rounded mb-1 py-2"><i class="bi bi-box-seam fs-4"></i></div>'}<small class="fw-bold">${p.name}</small><br><small class="text-success">$${p.price.toFixed(2)}</small></div></div>`).join('');}
+function addToCart(p){const e=cart.find(i=>i.productId===p.id);if(e)e.qty++;else cart.push({productId:p.id,productName:p.name,sku:p.sku,variantId:null,qty:1,unitPrice:p.price,discount:0,taxRate:p.taxRateValue||0});renderCart();updateTotals();}
+function renderCart(){const d=document.getElementById('cartItems');if(!cart.length){d.innerHTML='<p class="text-muted text-center mt-4">Cart is empty</p>';return;}d.innerHTML=cart.map((item,i)=>`<div class="card mb-2 p-2"><div class="d-flex justify-content-between align-items-start"><div><strong>${item.productName}</strong><br><small class="text-muted">${item.sku||''}</small></div><button class="btn btn-sm btn-outline-danger" onclick="removeItem(${i})"><i class="bi bi-x"></i></button></div><div class="d-flex align-items-center gap-2 mt-1"><button class="btn btn-sm btn-outline-secondary" onclick="changeQty(${i},-1)">-</button><input type="number" class="form-control form-control-sm text-center" style="width:60px" value="${item.qty}" onchange="setQty(${i},this.value)" min="1"><button class="btn btn-sm btn-outline-secondary" onclick="changeQty(${i},1)">+</button><span class="ms-auto fw-bold">$${((item.unitPrice-item.discount)*item.qty).toFixed(2)}</span></div></div>`).join('');}
+function removeItem(i){cart.splice(i,1);renderCart();updateTotals();}
+function changeQty(i,d){cart[i].qty=Math.max(1,cart[i].qty+d);renderCart();updateTotals();}
+function setQty(i,v){cart[i].qty=Math.max(1,parseInt(v)||1);updateTotals();}
+function clearCart(){cart=[];appliedCoupon=null;document.getElementById('couponCode').value='';document.getElementById('couponMsg').textContent='';renderCart();updateTotals();}
+function updateTotals(){let sub=cart.reduce((s,i)=>s+(i.unitPrice-i.discount)*i.qty,0),tax=cart.reduce((s,i)=>s+(i.unitPrice-i.discount)*i.qty*(i.taxRate||0),0),disc=parseFloat(document.getElementById('discountInput').value)||0;if(appliedCoupon){if(appliedCoupon.type==='Percentage')disc+=sub*appliedCoupon.value/100;else if(appliedCoupon.type==='FixedAmount')disc+=appliedCoupon.value;}document.getElementById('subtotal').textContent='$'+sub.toFixed(2);document.getElementById('taxDisplay').textContent='$'+tax.toFixed(2);document.getElementById('totalDisplay').textContent='$'+Math.max(0,sub+tax-disc).toFixed(2);}
+function openPayment(){if(!cart.length){alert('Cart is empty');return;}const t=parseFloat(document.getElementById('totalDisplay').textContent.replace('$',''));document.getElementById('modalTotal').textContent='$'+t.toFixed(2);document.getElementById('payAmount').value=t.toFixed(2);calcChange();new bootstrap.Modal(document.getElementById('paymentModal')).show();}
+function calcChange(){const t=parseFloat(document.getElementById('modalTotal').textContent.replace('$','')),p=parseFloat(document.getElementById('payAmount').value)||0;document.getElementById('changeDisplay').value='$'+Math.max(0,p-t).toFixed(2);}
+function onMethodChange(){document.getElementById('changeRow').style.display=parseInt(document.getElementById('payMethod').value)===0?'':'none';}
+async function completeSale(){const t=parseFloat(document.getElementById('modalTotal').textContent.replace('$','')),paid=parseFloat(document.getElementById('payAmount').value),method=parseInt(document.getElementById('payMethod').value),change=Math.max(0,paid-t),disc=parseFloat(document.getElementById('discountInput').value)||0,customerId=parseInt(document.getElementById('customerSelect').value)||null,couponCode=document.getElementById('couponCode').value.trim()||null;
+const r=await fetch('/Sale/Complete',{method:'POST',headers:{'Content-Type':'application/json','RequestVerificationToken':document.querySelector('input[name="__RequestVerificationToken"]')?.value||''},body:JSON.stringify({items:cart.map(i=>({productId:i.productId,productName:i.productName,sku:i.sku,variantId:i.variantId,qty:i.qty,unitPrice:i.unitPrice,discount:i.discount})),payments:[{method,amount:paid,change:method===0?change:null}],customerId,branchId,discount:disc,couponCode})});
+const res=await r.json();if(res.success){bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();clearCart();if(confirm('Sale complete! Print receipt?'))window.open('/Sale/Receipt/'+res.saleId,'_blank');}else alert('Error: '+res.message);}
+async function holdSale(){if(!cart.length){alert('Cart is empty');return;}const r=await fetch('/Sale/Hold',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:cart,customerId:parseInt(document.getElementById('customerSelect').value)||null,branchId})});const res=await r.json();if(res.success){clearCart();alert('Sale put on hold.');}}
+async function loadHeld(){const r=await fetch('/Sale/HeldSales');const sales=await r.json();document.getElementById('heldSalesList').innerHTML=!sales.length?'<p>No held sales.</p>':sales.map(s=>`<div class="card mb-2 p-3"><strong>${s.saleNumber}</strong> — $${s.total.toFixed(2)}<button class="btn btn-sm btn-success float-end" onclick='recallSale(${JSON.stringify(s)})'>Recall</button></div>`).join('');new bootstrap.Modal(document.getElementById('heldModal')).show();}
+function recallSale(sale){clearCart();sale.items.forEach(i=>cart.push({productId:i.productId,productName:i.productName,sku:i.sku||'',variantId:i.variantId,qty:i.qty,unitPrice:i.unitPrice,discount:i.discount,taxRate:0}));renderCart();updateTotals();bootstrap.Modal.getInstance(document.getElementById('heldModal')).hide();}
+async function applyCoupon(){const code=document.getElementById('couponCode').value.trim();if(!code)return;const r=await fetch('/Sale/ValidateCoupon?code='+encodeURIComponent(code));const res=await r.json();const msg=document.getElementById('couponMsg');if(res.valid){appliedCoupon=res;msg.textContent='✓ Applied';msg.className='text-success';}else{appliedCoupon=null;msg.textContent='✗ Invalid';msg.className='text-danger';}updateTotals();}
+renderCart();updateTotals();
+</script>@Html.AntiForgeryToken()}
