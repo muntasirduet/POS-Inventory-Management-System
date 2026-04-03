@@ -1,0 +1,31 @@
+# Build outputs
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# NuGet
+*.nupkg
+packages/
+!**/packages/build/
+
+# Publish
+publish/
+PublishProfiles/
+
+# Environment/secrets
+appsettings.Development.json
+*.pfx
+*.key
+
+# Logs
+*.log
+Logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (don't commit user uploads)
+POS.Web/wwwroot/uploads/

@@ -1,0 +1,19 @@
+@model List<POS.Application.DTOs.ProductDto>
+@{ ViewData["Title"] = "Products"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h2><i class="bi bi-box-seam"></i> Products</h2><a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Product</a></div>
+<div class="card"><div class="card-body">
+<form method="get" class="row g-2 mb-3"><div class="col-md-6"><input type="text" name="search" value="@ViewBag.Search" class="form-control" placeholder="Search name, SKU, barcode..."/></div><div class="col-auto"><button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i></button><a asp-action="Index" class="btn btn-outline-secondary ms-1">Clear</a></div></form>
+<div class="table-responsive"><table class="table table-hover align-middle"><thead class="table-dark"><tr><th>Image</th><th>Name</th><th>SKU</th><th>Barcode</th><th>Category</th><th>Price</th><th>Tax</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+@foreach(var p in Model){<tr>
+<td>@if(!string.IsNullOrEmpty(p.ImageUrl)){<img src="@p.ImageUrl" class="rounded" style="width:48px;height:48px;object-fit:cover"/>}else{<span class="badge bg-secondary">No Image</span>}</td>
+<td><strong>@p.Name</strong></td><td><code>@p.SKU</code></td>
+<td>@if(!string.IsNullOrEmpty(p.Barcode)){<svg id="bc@p.Id" class="bc"></svg><script>document.addEventListener('DOMContentLoaded',()=>JsBarcode("#bc@p.Id","@p.Barcode",{width:1.5,height:28,displayValue:true,fontSize:9}));</script>}</td>
+<td>@p.CategoryName</td><td>$@p.Price.ToString("N2")</td><td>@(p.TaxRateName??"None")</td>
+<td><span class="badge @(p.IsActive?"bg-success":"bg-danger")">@(p.IsActive?"Active":"Inactive")</span></td>
+<td><a asp-action="Details" asp-route-id="@p.Id" class="btn btn-sm btn-outline-info"><i class="bi bi-eye"></i></a>
+<a asp-action="Edit" asp-route-id="@p.Id" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
+<form method="post" asp-action="Delete" asp-route-id="@p.Id" class="d-inline" onsubmit="return confirm('Delete?')">@Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td>
+</tr>}
+</tbody></table></div>
+@if(!Model.Any()){<p class="text-center text-muted">No products found.</p>}
+</div></div>

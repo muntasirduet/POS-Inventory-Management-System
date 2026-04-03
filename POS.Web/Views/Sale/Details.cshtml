@@ -1,0 +1,19 @@
+@model POS.Application.DTOs.SaleDto
+@{ ViewData["Title"] = "Sale Details"; }
+<h2>Sale: @Model.SaleNumber</h2>
+<div class="row"><div class="col-md-8"><dl class="row">
+<dt class="col-4">Date</dt><dd class="col-8">@Model.CreatedAt.ToString("MMM dd, yyyy HH:mm")</dd>
+<dt class="col-4">Status</dt><dd class="col-8"><span class="badge bg-success">@Model.Status</span></dd>
+<dt class="col-4">Customer</dt><dd class="col-8">@(Model.CustomerName??"Walk-in")</dd>
+<dt class="col-4">Subtotal</dt><dd class="col-8">$@Model.SubTotal.ToString("N2")</dd>
+<dt class="col-4">Tax</dt><dd class="col-8">$@Model.Tax.ToString("N2")</dd>
+<dt class="col-4">Discount</dt><dd class="col-8">$@Model.Discount.ToString("N2")</dd>
+<dt class="col-4"><strong>Total</strong></dt><dd class="col-8"><strong>$@Model.Total.ToString("N2")</strong></dd>
+</dl>
+<h5 class="mt-3">Items</h5><table class="table"><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>
+@foreach(var item in Model.Items){<tr><td>@item.ProductName</td><td>@item.Qty</td><td>$@item.UnitPrice.ToString("N2")</td><td>$@item.LineTotal.ToString("N2")</td></tr>}
+</tbody></table>
+<h5>Payments</h5>@foreach(var p in Model.Payments){<p><span class="badge bg-info text-dark">@p.Method</span> $@p.Amount.ToString("N2")</p>}
+</div></div>
+<a asp-action="Receipt" asp-route-id="@Model.Id" class="btn btn-outline-secondary" target="_blank"><i class="bi bi-printer"></i> Print Receipt</a>
+<a asp-action="Index" class="btn btn-secondary">Back</a>

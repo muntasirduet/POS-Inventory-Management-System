@@ -1,0 +1,11 @@
+@model List<POS.Application.DTOs.SaleDto>
+@{ ViewData["Title"] = "Sales History"; }
+<div class="d-flex justify-content-between mb-3"><h2><i class="bi bi-receipt"></i> Sales History</h2><a asp-action="Create" class="btn btn-success"><i class="bi bi-plus-lg"></i> New Sale</a></div>
+<div class="card mb-3"><div class="card-body"><form method="get" class="row g-2"><div class="col-md-3"><input type="date" name="from" value="@ViewBag.From" class="form-control"/></div><div class="col-md-3"><input type="date" name="to" value="@ViewBag.To" class="form-control"/></div><div class="col-auto"><button type="submit" class="btn btn-primary">Filter</button></div></form></div></div>
+<div class="card"><div class="card-body"><table class="table table-hover"><thead class="table-dark"><tr><th>Sale #</th><th>Date</th><th>Customer</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+@foreach(var s in Model){<tr>
+<td><code>@s.SaleNumber</code></td><td>@s.CreatedAt.ToString("MMM dd, yyyy HH:mm")</td><td>@(s.CustomerName??"—")</td><td>$@s.Total.ToString("N2")</td>
+<td><span class="badge @(s.Status.ToString()=="Completed"?"bg-success":s.Status.ToString()=="OnHold"?"bg-warning text-dark":"bg-secondary")">@s.Status</span></td>
+<td><a asp-action="Details" asp-route-id="@s.Id" class="btn btn-sm btn-outline-info"><i class="bi bi-eye"></i></a><a asp-action="Receipt" asp-route-id="@s.Id" class="btn btn-sm btn-outline-secondary" target="_blank"><i class="bi bi-printer"></i></a></td>
+</tr>}
+</tbody></table></div></div>
