@@ -66,10 +66,11 @@ public class AdminController : Controller
         if (result.Succeeded)
         {
             await _userManager.AddToRoleAsync(user, model.Role);
-            var actorId = _userManager.GetUserId(User)!;
-            await _auditService.LogAsync(actorId, "CreateUser", "User", user.Id,
-                newValues: $"Email={user.Email}, Role={model.Role}",
-                ipAddress: _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString());
+            var actorId = _userManager.GetUserId(User);
+            if (actorId != null)
+                await _auditService.LogAsync(actorId, "CreateUser", "User", user.Id,
+                    newValues: $"Email={user.Email}, Role={model.Role}",
+                    ipAddress: _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString());
             TempData["Success"] = "User created.";
             return RedirectToAction(nameof(Users));
         }
@@ -153,9 +154,10 @@ public class AdminController : Controller
         var result = await _roleManager.CreateAsync(new IdentityRole(roleName));
         if (result.Succeeded)
         {
-            var actorId = _userManager.GetUserId(User)!;
-            await _auditService.LogAsync(actorId, "CreateRole", "Role", null, newValues: $"RoleName={roleName}",
-                ipAddress: _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString());
+            var actorId = _userManager.GetUserId(User);
+            if (actorId != null)
+                await _auditService.LogAsync(actorId, "CreateRole", "Role", null, newValues: $"RoleName={roleName}",
+                    ipAddress: _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString());
             TempData["Success"] = $"Role '{roleName}' created.";
             return RedirectToAction(nameof(Roles));
         }
@@ -207,21 +209,24 @@ public class AdminController : Controller
         // Bulk update in a single transaction
         await _permissionService.BulkUpdateRolePermissionsAsync(roleId, newIds);
 
-        var actorId = _userManager.GetUserId(User)!;
+        var actorId = _userManager.GetUserId(User);
         var ipAddress = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
 
-        var granted = allPerms.Where(p => newIds.Contains(p.Id) && !currentIds.Contains(p.Id)).Select(p => p.Name);
-        var revoked = allPerms.Where(p => !newIds.Contains(p.Id) && currentIds.Contains(p.Id)).Select(p => p.Name);
+        if (actorId != null)
+        {
+            var granted = allPerms.Where(p => newIds.Contains(p.Id) && !currentIds.Contains(p.Id)).Select(p => p.Name).ToList();
+            var revoked = allPerms.Where(p => !newIds.Contains(p.Id) && currentIds.Contains(p.Id)).Select(p => p.Name).ToList();
 
-        if (granted.Any())
-            await _auditService.LogAsync(actorId, "GrantPermissions", "RolePermission", null,
-                newValues: $"Role={role.Name}, Granted=[{string.Join(",", granted)}]",
-                ipAddress: ipAddress);
+            if (granted.Count > 0)
+                await _auditService.LogAsync(actorId, "GrantPermissions", "RolePermission", null,
+                    newValues: $"Role={role.Name}, Granted=[{string.Join(",", granted)}]",
+                    ipAddress: ipAddress);
 
-        if (revoked.Any())
-            await _auditService.LogAsync(actorId, "RevokePermissions", "RolePermission", null,
-                oldValues: $"Role={role.Name}, Revoked=[{string.Join(",", revoked)}]",
-                ipAddress: ipAddress);
+            if (revoked.Count > 0)
+                await _auditService.LogAsync(actorId, "RevokePermissions", "RolePermission", null,
+                    oldValues: $"Role={role.Name}, Revoked=[{string.Join(",", revoked)}]",
+                    ipAddress: ipAddress);
+        }
 
         TempData["Success"] = $"Permissions for role '{role.Name}' updated.";
         return RedirectToAction(nameof(Roles));
@@ -255,14 +260,15 @@ public class AdminController : Controller
         if (user == null) return NotFound();
 
         var granted = (grantedPermissionIds ?? new List<int>()).ToHashSet();
-        var actorId = _userManager.GetUserId(User)!;
+        var actorId = _userManager.GetUserId(User);
 
         // Bulk replace all overrides in a single DB round-trip
         await _permissionService.ReplaceUserPermissionOverridesAsync(userId, granted);
 
-        await _auditService.LogAsync(actorId, "UpdateUserPermissionOverrides", "UserPermissionOverride", userId,
-            newValues: string.Join(",", granted),
-            ipAddress: _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString());
+        if (actorId != null)
+            await _auditService.LogAsync(actorId, "UpdateUserPermissionOverrides", "UserPermissionOverride", userId,
+                newValues: string.Join(",", granted),
+                ipAddress: _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString());
 
         TempData["Success"] = $"Permission overrides for '{user.UserName}' updated.";
         return RedirectToAction(nameof(Users));
