@@ -61,7 +61,21 @@ public class SupplierController : Controller
     public async Task<IActionResult> Delete(int id)
     {
         var supplier = await _db.Suppliers.FindAsync(id);
-        if (supplier != null) { _db.Suppliers.Remove(supplier); await _db.SaveChangesAsync(); }
+        if (supplier == null)
+        {
+            TempData["Error"] = "Supplier not found.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var hasPurchaseOrders = await _db.PurchaseOrders.AnyAsync(po => po.SupplierId == id);
+        if (hasPurchaseOrders)
+        {
+            TempData["Error"] = "Cannot delete supplier with existing purchase orders.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        _db.Suppliers.Remove(supplier);
+        await _db.SaveChangesAsync();
         TempData["Success"] = "Supplier deleted.";
         return RedirectToAction(nameof(Index));
     }

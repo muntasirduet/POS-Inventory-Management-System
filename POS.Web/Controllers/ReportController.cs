@@ -49,6 +49,7 @@ public class ReportController : Controller
         var logs = await query.OrderByDescending(l => l.Timestamp).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         ViewBag.Page = page;
         ViewBag.TotalPages = (int)Math.Ceiling(total / (double)pageSize);
+        ViewBag.EntityTypeFilter = entityType ?? string.Empty;
         return View(logs);
     }
 

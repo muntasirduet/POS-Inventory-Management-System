@@ -1,5 +1,5 @@
 @model List<POS.Core.Entities.AuditLog>
-@{ ViewData["Title"] = "Audit Logs"; int page = ViewBag.Page; int totalPages = ViewBag.TotalPages; var entityTypeFilter = Context.Request.Query["entityType"].ToString(); }
+@{ ViewData["Title"] = "Audit Logs"; int page = ViewBag.Page; int totalPages = ViewBag.TotalPages; string entityTypeFilter = ViewBag.EntityTypeFilter ?? string.Empty; }
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2><i class="bi bi-shield-check"></i> Audit Logs</h2>
     <a asp-action="Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Reports</a>
