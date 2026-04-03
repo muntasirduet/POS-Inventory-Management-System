@@ -1,0 +1,63 @@
+@model List<POS.Core.Entities.StockMovement>
+@{ ViewData["Title"] = "Stock Movements"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-arrow-repeat"></i> Stock Movements</h2>
+    <div class="d-flex gap-2">
+        <a asp-action="Adjust" class="btn btn-outline-primary btn-sm"><i class="bi bi-sliders"></i> Adjust</a>
+        <a asp-action="Transfer" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left-right"></i> Transfer</a>
+    </div>
+</div>
+<div class="card shadow-sm">
+    <div class="card-body">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Date</th>
+                    <th>Product</th>
+                    <th>Type</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th class="text-end">Qty</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var m in Model)
+                {
+                    <tr>
+                        <td><small>@m.CreatedAt.ToString("MMM dd, yyyy HH:mm")</small></td>
+                        <td>@m.Product?.Name</td>
+                        <td>
+                            @switch (m.Type.ToString())
+                            {
+                                case "Transfer":
+                                    <span class="badge bg-info">Transfer</span>
+                                    break;
+                                case "Adjustment":
+                                    <span class="badge bg-warning text-dark">Adjustment</span>
+                                    break;
+                                case "Sale":
+                                    <span class="badge bg-danger">Sale</span>
+                                    break;
+                                case "Purchase":
+                                    <span class="badge bg-success">Purchase</span>
+                                    break;
+                                default:
+                                    <span class="badge bg-secondary">@m.Type</span>
+                                    break;
+                            }
+                        </td>
+                        <td>@(m.FromBranch?.Name ?? "—")</td>
+                        <td>@(m.ToBranch?.Name ?? "—")</td>
+                        <td class="text-end fw-bold @(m.Qty < 0 ? "text-danger" : "text-success")">@(m.Qty > 0 ? "+" : "")@m.Qty</td>
+                        <td><small class="text-muted">@m.Notes</small></td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4">No movements recorded.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

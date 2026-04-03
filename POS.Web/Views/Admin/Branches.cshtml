@@ -1,0 +1,33 @@
+@model List<POS.Core.Entities.Branch>
+@{ ViewData["Title"] = "Branches"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-shop"></i> Branches</h4>
+    <a asp-action="CreateBranch" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Add Branch</a>
+</div>
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Name</th>
+                    <th>Store</th>
+                    <th>Address</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var b in Model)
+                {
+                    <tr>
+                        <td><strong>@b.Name</strong></td>
+                        <td>@b.Store?.Name</td>
+                        <td>@b.Address</td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="3" class="text-center text-muted py-4">No branches found.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
