@@ -1,0 +1,17 @@
+@{ ViewData["Title"] = "Open Shift"; }
+<h2>@ViewData["Title"]</h2>
+@if (TempData["Error"] != null) { <div class="alert alert-danger">@TempData["Error"]</div> }
+<div class="row"><div class="col-md-5">
+<div class="card"><div class="card-body">
+<form asp-action="Open" method="post">
+@Html.AntiForgeryToken()
+<div class="mb-3">
+    <label class="form-label fw-semibold">Opening Cash in Drawer ($)</label>
+    <input type="number" name="openingCash" step="0.01" min="0" class="form-control" value="0" required autofocus />
+    <div class="form-text">Count the notes and coins in the till before starting.</div>
+</div>
+<button type="submit" class="btn btn-success"><i class="bi bi-play-circle me-1"></i>Open Shift</button>
+<a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
+</form>
+</div></div>
+</div></div>

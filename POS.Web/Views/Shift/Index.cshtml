@@ -1,0 +1,43 @@
+@model IEnumerable<POS.Core.Entities.Shift>
+@{ ViewData["Title"] = "Shifts"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>@ViewData["Title"]</h2>
+    <a asp-action="Current" class="btn btn-primary"><i class="bi bi-clock me-1"></i>My Current Shift</a>
+</div>
+
+@if (TempData["Success"] != null) { <div class="alert alert-success alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>@TempData["Success"]</div> }
+@if (TempData["Error"] != null) { <div class="alert alert-danger alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>@TempData["Error"]</div> }
+
+<div class="card mb-3"><div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-center">
+        <div class="col-auto"><input type="date" name="from" value="@ViewBag.From" class="form-control" /></div>
+        <div class="col-auto"><input type="date" name="to" value="@ViewBag.To" class="form-control" /></div>
+        <div class="col-auto"><button class="btn btn-outline-secondary">Filter</button></div>
+    </form>
+</div></div>
+
+<div class="card"><div class="card-body p-0">
+    <table class="table table-hover mb-0">
+        <thead class="table-dark">
+            <tr><th>Employee</th><th>Branch</th><th>Start</th><th>End</th><th>Opening</th><th>Expected</th><th>Closing</th><th>Variance</th><th></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var s in Model)
+            {
+                var variance = s.ClosingCash.HasValue && s.ExpectedCash.HasValue ? (s.ClosingCash - s.ExpectedCash) : null;
+                <tr>
+                    <td>@s.Employee?.UserId</td>
+                    <td>@(s.Branch?.Name ?? "–")</td>
+                    <td>@s.StartTime.ToLocalTime().ToString("dd MMM HH:mm")</td>
+                    <td>@(s.EndTime.HasValue ? s.EndTime.Value.ToLocalTime().ToString("dd MMM HH:mm") : "<span class='badge bg-success'>Open</span>")</td>
+                    <td>$@s.OpeningCash.ToString("F2")</td>
+                    <td>@(s.ExpectedCash.HasValue ? "$"+s.ExpectedCash.Value.ToString("F2") : "–")</td>
+                    <td>@(s.ClosingCash.HasValue ? "$"+s.ClosingCash.Value.ToString("F2") : "–")</td>
+                    <td>@(variance.HasValue ? "<span class=\"text-"+(variance >= 0 ? "success" : "danger")+"\">"+(variance >= 0 ? "+" : "")+"$"+variance.Value.ToString("F2")+"</span>" : "–")</td>
+                    <td><a asp-action="Details" asp-route-id="@s.Id" class="btn btn-sm btn-outline-primary">View</a></td>
+                </tr>
+            }
+            @if (!Model.Any()) { <tr><td colspan="9" class="text-center py-4 text-muted">No shifts found.</td></tr> }
+        </tbody>
+    </table>
+</div></div>

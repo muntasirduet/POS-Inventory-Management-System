@@ -1,0 +1,109 @@
+@model POS.Core.Entities.Shift
+@{ ViewData["Title"] = "Close Shift"; var cashIn = Model.CashEntries.Where(e => e.Type == "CashIn").Sum(e => e.Amount); var cashOut = Model.CashEntries.Where(e => e.Type == "CashOut").Sum(e => e.Amount); }
+<h2>@ViewData["Title"]</h2>
+@if (TempData["Error"] != null) { <div class="alert alert-danger">@TempData["Error"]</div> }
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 bg-light"><div class="card-body">
+            <div class="fw-bold">$@Model.OpeningCash.ToString("F2")</div><div class="text-muted small">Opening Cash</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 bg-light"><div class="card-body">
+            <div class="fw-bold text-success">+$@cashIn.ToString("F2")</div><div class="text-muted small">Cash In</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 bg-light"><div class="card-body">
+            <div class="fw-bold text-danger">-$@cashOut.ToString("F2")</div><div class="text-muted small">Cash Out</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-warning border"><div class="card-body">
+            <div class="fw-bold" id="expectedDisplay">calculating…</div><div class="text-muted small">Expected (approx.)</div>
+        </div></div>
+    </div>
+</div>
+
+<div class="row"><div class="col-md-5">
+<div class="card"><div class="card-body">
+<form asp-action="Close" method="post">
+@Html.AntiForgeryToken()
+<input type="hidden" name="id" value="@Model.Id" />
+<div class="mb-3">
+    <label class="form-label fw-semibold">Cash Denomination Count</label>
+    <table class="table table-sm table-bordered mb-1" id="denomTable">
+        <thead class="table-light"><tr><th>Denomination</th><th>Count</th><th class="text-end">Sub-Total</th></tr></thead>
+        <tbody>
+        @{ var denoms = new[] { 100m, 50m, 20m, 10m, 5m, 2m, 1m, 0.50m, 0.25m, 0.10m, 0.05m, 0.01m }; }
+        @foreach (var d in denoms)
+        {
+            <tr>
+                <td>$@d.ToString("0.##")<input type="hidden" name="dendenom" value="@d.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)" /></td>
+                <td><input type="number" name="dencount" min="0" value="0" class="form-control form-control-sm den-count" data-denom="@d.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)" /></td>
+                <td class="text-end den-sub" data-denom="@d.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)">$0.00</td>
+            </tr>
+        }
+        </tbody>
+        <tfoot class="table-light fw-bold">
+            <tr><td colspan="2">Total Counted</td><td class="text-end" id="denomTotal">$0.00</td></tr>
+        </tfoot>
+    </table>
+</div>
+<div class="mb-3">
+    <label class="form-label fw-semibold">Closing Cash Count ($)</label>
+    <input type="number" name="closingCash" step="0.01" min="0" class="form-control" id="closingCash" required autofocus />
+    <div class="form-text">Populated automatically from denomination count above, or enter manually.</div>
+</div>
+<div class="mb-3" id="varianceRow" style="display:none">
+    <label class="form-label">Variance</label>
+    <div class="fs-5 fw-bold" id="varianceDisplay">–</div>
+</div>
+<div class="mb-3"><label class="form-label">Closing Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+<button type="submit" class="btn btn-danger">Close Shift</button>
+<a asp-action="Current" class="btn btn-secondary ms-2">Cancel</a>
+</form>
+</div></div>
+</div></div>
+
+@section Scripts {
+<script>
+const opening = @Model.OpeningCash.ToString("F4");
+const cashIn = @cashIn.ToString("F4");
+const cashOut = @cashOut.ToString("F4");
+document.getElementById('expectedDisplay').textContent = '$' + (opening + cashIn - cashOut).toFixed(2) + ' + sales';
+
+function recalcDenoms() {
+    let total = 0;
+    document.querySelectorAll('.den-count').forEach(function(inp) {
+        const d = parseFloat(inp.dataset.denom) || 0;
+        const c = parseInt(inp.value) || 0;
+        const sub = d * c;
+        total += sub;
+        const cell = document.querySelector('.den-sub[data-denom="' + inp.dataset.denom + '"]');
+        if (cell) cell.textContent = '$' + sub.toFixed(2);
+    });
+    document.getElementById('denomTotal').textContent = '$' + total.toFixed(2);
+    document.getElementById('closingCash').value = total.toFixed(2);
+    updateVariance(total);
+}
+
+function updateVariance(v) {
+    const approxExpected = opening + cashIn - cashOut;
+    const variance = v - approxExpected;
+    document.getElementById('varianceRow').style.display = '';
+    const el = document.getElementById('varianceDisplay');
+    el.textContent = (variance >= 0 ? '+' : '') + '$' + variance.toFixed(2) + ' (approx.)';
+    el.className = 'fs-5 fw-bold ' + (variance >= 0 ? 'text-success' : 'text-danger');
+}
+
+document.querySelectorAll('.den-count').forEach(function(inp) {
+    inp.addEventListener('input', recalcDenoms);
+});
+document.getElementById('closingCash').addEventListener('input', function() {
+    const v = parseFloat(this.value) || 0;
+    updateVariance(v);
+});
+</script>
+}

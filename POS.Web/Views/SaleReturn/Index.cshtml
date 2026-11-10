@@ -1,0 +1,46 @@
+@model IEnumerable<POS.Core.Entities.SaleReturn>
+@{ ViewData["Title"] = "Sale Returns"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>@ViewData["Title"]</h2>
+    <a asp-action="Create" class="btn btn-primary"><i class="bi bi-arrow-return-left me-1"></i>New Return</a>
+</div>
+
+@if (TempData["Success"] != null) { <div class="alert alert-success alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>@TempData["Success"]</div> }
+@if (TempData["Error"] != null) { <div class="alert alert-danger alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>@TempData["Error"]</div> }
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-auto"><input type="date" name="from" value="@ViewBag.From" class="form-control" /></div>
+            <div class="col-auto"><input type="date" name="to" value="@ViewBag.To" class="form-control" /></div>
+            <div class="col-auto"><button class="btn btn-outline-secondary">Filter</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr><th>Return #</th><th>Original Sale</th><th>Date</th><th>Items</th><th>Refund</th><th>Method</th><th>Restocked</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Model)
+                {
+                    <tr>
+                        <td><strong>#@r.Id</strong></td>
+                        <td><a asp-controller="Sale" asp-action="Details" asp-route-id="@r.SaleId">@r.Sale?.SaleNumber</a></td>
+                        <td>@r.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
+                        <td>@r.Items.Count</td>
+                        <td><strong>$@r.RefundAmount.ToString("F2")</strong></td>
+                        <td><span class="badge bg-secondary">@r.RefundMethod</span></td>
+                        <td>@(r.RestockItems ? "✓" : "–")</td>
+                        <td><a asp-action="Details" asp-route-id="@r.Id" class="btn btn-sm btn-outline-primary">View</a></td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                { <tr><td colspan="8" class="text-center py-4 text-muted">No returns found.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>

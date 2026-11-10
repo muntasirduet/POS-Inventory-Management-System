@@ -1,2 +1,2 @@
 namespace POS.Core.Enums;
-public enum PaymentMethod { Cash, Card, MobileWallet, QR }
+public enum PaymentMethod { Cash, Card, MobileWallet, QR, GiftCard, StoreCredit }

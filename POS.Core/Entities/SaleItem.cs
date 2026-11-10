@@ -11,4 +11,8 @@ public class SaleItem : BaseEntity
     public decimal UnitPrice { get; set; }
     public decimal Discount { get; set; }
     public decimal LineTotal { get; set; }
+    /// <summary>Tax rate snapshot at time of sale/hold so recalls remain consistent even if rates change.</summary>
+    public decimal TaxRateSnapshot { get; set; } = 0;
+    /// <summary>Product cost price snapshot at time of sale — used for COGS and margin calculations.</summary>
+    public decimal UnitCostSnapshot { get; set; } = 0;
 }

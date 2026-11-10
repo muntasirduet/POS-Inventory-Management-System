@@ -1,0 +1,37 @@
+@model POS.Core.Entities.Shift
+@{ ViewData["Title"] = $"Shift #{Model.Id}"; var variance = Model.ClosingCash.HasValue && Model.ExpectedCash.HasValue ? (Model.ClosingCash - Model.ExpectedCash) : (decimal?)null; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>@ViewData["Title"]</h2>
+    <a asp-action="Index" class="btn btn-outline-secondary">← Shifts</a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-2"><div class="card text-center"><div class="card-body"><div class="fw-bold">$@Model.OpeningCash.ToString("F2")</div><div class="text-muted small">Opening</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center"><div class="card-body"><div class="fw-bold text-muted">@(Model.ExpectedCash.HasValue ? "$"+Model.ExpectedCash.Value.ToString("F2") : "–")</div><div class="text-muted small">Expected</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center"><div class="card-body"><div class="fw-bold">@(Model.ClosingCash.HasValue ? "$"+Model.ClosingCash.Value.ToString("F2") : "–")</div><div class="text-muted small">Closing</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center border-@(variance.HasValue ? (variance >= 0 ? "success" : "danger") : "secondary")"><div class="card-body"><div class="fw-bold text-@(variance.HasValue ? (variance >= 0 ? "success" : "danger") : "muted")">@(variance.HasValue ? (variance >= 0 ? "+" : "") + "$" + variance.Value.ToString("F2") : "–")</div><div class="text-muted small">Variance</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center"><div class="card-body"><div class="fw-bold">@Model.StartTime.ToLocalTime().ToString("HH:mm")</div><div class="text-muted small">Start</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center"><div class="card-body"><div class="fw-bold">@(Model.EndTime.HasValue ? Model.EndTime.Value.ToLocalTime().ToString("HH:mm") : "–")</div><div class="text-muted small">End</div></div></div></div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Notes))
+{ <div class="alert alert-secondary"><strong>Notes:</strong> @Model.Notes</div> }
+
+<div class="card"><div class="card-header fw-semibold">Cash Entries</div>
+<div class="card-body p-0">
+    <table class="table table-sm mb-0">
+        <thead class="table-light"><tr><th>Time</th><th>Type</th><th>Amount</th><th>Reason</th></tr></thead>
+        <tbody>
+            @foreach (var e in Model.CashEntries.OrderBy(e => e.CreatedAt))
+            {
+                <tr>
+                    <td>@e.CreatedAt.ToLocalTime().ToString("HH:mm")</td>
+                    <td><span class="badge @(e.Type=="CashIn"?"bg-success":"bg-danger")">@e.Type</span></td>
+                    <td>$@e.Amount.ToString("F2")</td>
+                    <td><small>@e.Reason</small></td>
+                </tr>
+            }
+            @if (!Model.CashEntries.Any()) { <tr><td colspan="4" class="text-center py-3 text-muted">No cash entries.</td></tr> }
+        </tbody>
+    </table>
+</div></div>

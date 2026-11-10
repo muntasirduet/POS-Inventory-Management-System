@@ -1,0 +1,30 @@
+@model List<POS.Core.Entities.CustomerGroup>
+@{ ViewData["Title"] = "Customer Groups"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-people-fill"></i> Customer Groups</h4>
+    <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> New Group</a>
+</div>
+@if (TempData["Success"] != null) { <div class="alert alert-success alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>@TempData["Success"]</div> }
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light"><tr><th>Name</th><th>Description</th><th>Default Discount</th><th>Members</th><th>Price Rules</th><th>Actions</th></tr></thead>
+            <tbody>
+                @foreach (var g in Model)
+                {
+                    <tr>
+                        <td><strong>@g.Name</strong></td>
+                        <td class="text-muted small">@(g.Description ?? "—")</td>
+                        <td>@(g.DefaultDiscountPct > 0 ? $"{g.DefaultDiscountPct:0.##}%" : "—")</td>
+                        <td>@g.Customers.Count</td>
+                        <td><a asp-action="PriceRules" asp-route-id="@g.Id" class="btn btn-sm btn-outline-info">Rules</a></td>
+                        <td>
+                            <a asp-action="Edit" asp-route-id="@g.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any()) { <tr><td colspan="6" class="text-center text-muted py-4">No groups yet.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>

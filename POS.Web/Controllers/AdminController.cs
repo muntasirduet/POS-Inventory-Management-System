@@ -46,7 +46,14 @@ public class AdminController : Controller
         var users = await _userManager.Users.ToListAsync();
         var userRoles = new Dictionary<string, IList<string>>();
         foreach (var user in users) userRoles[user.Id] = await _userManager.GetRolesAsync(user);
+        
+        // Load branch info for display
+        var branches = await _db.Branches.AsNoTracking().ToListAsync();
+        var branchDict = branches.ToDictionary(b => b.Id, b => b.Name);
+        
         ViewBag.UserRoles = userRoles;
+        ViewBag.Branches = branches;
+        ViewBag.BranchDict = branchDict;
         return View(users);
     }
 
@@ -116,12 +123,99 @@ public class AdminController : Controller
         return RedirectToAction(nameof(Settings));
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
-    public IActionResult SetBranch(int branchId)
+    /// <summary>Get branches for dropdown - SuperAdmin sees all, Cashiers see only their assigned branch</summary>
+    [HttpGet]
+    [AllowAnonymous] // Override class-level restriction to allow all authenticated users
+    public async Task<IActionResult> GetBranchesForSelector()
     {
+        // Only accessible to authenticated users
+        if (!User.Identity?.IsAuthenticated ?? true)
+            return Unauthorized(new { message = "Not authenticated" });
+        
+        // SuperAdmin/StoreOwner see all branches
+        if (User.IsInRole("SuperAdmin") || User.IsInRole("StoreOwner"))
+        {
+            var allBranches = await _db.Branches
+                .AsNoTracking()
+                .Select(b => new { id = b.Id, name = b.Name, isReadOnly = false })
+                .ToListAsync();
+            return Json(allBranches);
+        }
+        
+        // Cashiers/other roles see only their assigned branch
+        var user = await _userManager.GetUserAsync(User);
+        if (user?.BranchId == null)
+            return Json(new object[0]); // No assigned branch
+        
+        var userBranch = await _db.Branches
+            .AsNoTracking()
+            .Where(b => b.Id == user.BranchId)
+            .Select(b => new { id = b.Id, name = b.Name, isReadOnly = true })
+            .FirstOrDefaultAsync();
+        
+        return Json(userBranch != null ? new[] { userBranch } : new object[0]);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [AllowAnonymous] // Override class-level restriction to allow all authenticated users
+    public async Task<IActionResult> SetBranch(int branchId)
+    {
+        // Only accessible to authenticated users
+        if (!User.Identity?.IsAuthenticated ?? true)
+            return Json(new { success = false, message = "Not authenticated" });
+        
+        var branch = await _db.Branches.FindAsync(branchId);
+        if (branch == null)
+            return Json(new { success = false, message = "Branch not found" });
+
+        // Validate user has access to this branch (except SuperAdmin)
+        if (!User.IsInRole("SuperAdmin"))
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user?.BranchId != branchId)
+                return Json(new { success = false, message = "You don't have access to this branch" });
+        }
+
         HttpContext.Session.SetInt32("BranchId", branchId);
-        TempData["Success"] = "Branch context switched.";
-        return RedirectToAction("Index", "Home");
+        return Json(new { success = true, message = $"Branch changed to {branch.Name}" });
+    }
+    
+    /// <summary>SuperAdmin assigns a branch to a cashier/user</summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AssignBranchToUser([FromBody] AssignBranchRequest request)
+    {
+        if (request == null || string.IsNullOrEmpty(request.UserId))
+            return Json(new { success = false, message = "Invalid request" });
+        
+        // Only SuperAdmin can assign branches
+        if (!User.IsInRole("SuperAdmin"))
+            return Json(new { success = false, message = "Only SuperAdmin can assign branches" });
+        
+        var user = await _userManager.FindByIdAsync(request.UserId);
+        if (user == null)
+            return Json(new { success = false, message = "User not found" });
+        
+        var branch = await _db.Branches.FindAsync(request.BranchId);
+        if (branch == null)
+            return Json(new { success = false, message = "Branch not found" });
+        
+        // Update user's branch
+        user.BranchId = request.BranchId;
+        var result = await _userManager.UpdateAsync(user);
+        
+        if (result.Succeeded)
+        {
+            var actorId = _userManager.GetUserId(User);
+            if (actorId != null)
+                await _auditService.LogAsync(actorId, "AssignBranchToUser", "User", request.UserId,
+                    newValues: $"BranchId={request.BranchId}, BranchName={branch.Name}",
+                    ipAddress: _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString());
+            
+            return Json(new { success = true, message = $"Branch '{branch.Name}' assigned to {user.FullName}" });
+        }
+        
+        return Json(new { success = false, message = "Failed to update user" });
     }
 
     // ── Roles ─────────────────────────────────────────────────────────────
@@ -284,4 +378,11 @@ public class AdminController : Controller
         ViewBag.Roles = new SelectList(await rolesQuery.ToListAsync(), "Name", "Name");
         ViewBag.Branches = new SelectList(await _db.Branches.ToListAsync(), "Id", "Name");
     }
+}
+
+/// <summary>Request model for assigning branches to users</summary>
+public class AssignBranchRequest
+{
+    public string UserId { get; set; }
+    public int BranchId { get; set; }
 }

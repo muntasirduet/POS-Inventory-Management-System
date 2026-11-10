@@ -1,56 +1,72 @@
 @model List<POS.Core.Entities.PurchaseOrder>
+@using POS.Core.Enums
 @{ ViewData["Title"] = "Purchase Orders"; }
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2><i class="bi bi-cart-plus"></i> Purchase Orders</h2>
     <a asp-action="CreatePurchaseOrder" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> New Order</a>
 </div>
+@if (TempData["Success"] != null) { <div class="alert alert-success alert-dismissible"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>@TempData["Success"]</div> }
+@if (TempData["Error"] != null) { <div class="alert alert-danger alert-dismissible"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>@TempData["Error"]</div> }
 <div class="card shadow-sm">
     <div class="card-body">
-        <table class="table table-hover mb-0">
+        <table class="table table-hover mb-0 align-middle">
             <thead class="table-dark">
                 <tr>
+                    <th>#</th>
                     <th>Date</th>
                     <th>Supplier</th>
                     <th>Branch</th>
                     <th>Status</th>
                     <th class="text-end">Total</th>
                     <th>Notes</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var po in Model)
                 {
+                    var badgeClass = po.Status switch {
+                        PurchaseOrderStatus.Draft             => "bg-secondary",
+                        PurchaseOrderStatus.Ordered           => "bg-primary",
+                        PurchaseOrderStatus.PartiallyReceived => "bg-warning text-dark",
+                        PurchaseOrderStatus.Received          => "bg-success",
+                        PurchaseOrderStatus.Cancelled         => "bg-danger",
+                        _                                     => "bg-secondary"
+                    };
                     <tr>
+                        <td><small class="text-muted">@po.Id</small></td>
                         <td><small>@po.CreatedAt.ToString("MMM dd, yyyy")</small></td>
                         <td>@po.Supplier?.Name</td>
                         <td>@po.Branch?.Name</td>
-                        <td>
-                            @switch (po.Status.ToString())
-                            {
-                                case "Draft":
-                                    <span class="badge bg-secondary">Draft</span>
-                                    break;
-                                case "Ordered":
-                                    <span class="badge bg-primary">Ordered</span>
-                                    break;
-                                case "Received":
-                                    <span class="badge bg-success">Received</span>
-                                    break;
-                                case "Cancelled":
-                                    <span class="badge bg-danger">Cancelled</span>
-                                    break;
-                                default:
-                                    <span class="badge bg-secondary">@po.Status</span>
-                                    break;
-                            }
-                        </td>
+                        <td><span class="badge @badgeClass">@po.Status</span></td>
                         <td class="text-end fw-bold">$@po.Total.ToString("N2")</td>
                         <td><small class="text-muted">@po.Notes</small></td>
+                        <td>
+                            <a asp-action="PurchaseOrderDetails" asp-route-id="@po.Id" class="btn btn-sm btn-outline-info" title="Details"><i class="bi bi-eye"></i></a>
+                            @if (po.Status == PurchaseOrderStatus.Draft)
+                            {
+                                <form method="post" asp-action="SubmitPurchaseOrder" asp-route-id="@po.Id" class="d-inline" onsubmit="return confirm('Submit this order to the supplier?')">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-sm btn-outline-primary ms-1" title="Submit"><i class="bi bi-send"></i></button>
+                                </form>
+                            }
+                            @if (po.Status == PurchaseOrderStatus.Ordered || po.Status == PurchaseOrderStatus.PartiallyReceived)
+                            {
+                                <a asp-action="ReceivePurchaseOrder" asp-route-id="@po.Id" class="btn btn-sm btn-outline-success ms-1" title="Receive Stock"><i class="bi bi-box-arrow-in-down"></i></a>
+                            }
+                            @if (po.Status != PurchaseOrderStatus.Received && po.Status != PurchaseOrderStatus.Cancelled)
+                            {
+                                <form method="post" asp-action="CancelPurchaseOrder" asp-route-id="@po.Id" class="d-inline" onsubmit="return confirm('Cancel this purchase order?')">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-sm btn-outline-danger ms-1" title="Cancel"><i class="bi bi-x-circle"></i></button>
+                                </form>
+                            }
+                        </td>
                     </tr>
                 }
                 @if (!Model.Any())
                 {
-                    <tr><td colspan="6" class="text-center text-muted py-4">No purchase orders found.</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted py-4">No purchase orders found.</td></tr>
                 }
             </tbody>
         </table>

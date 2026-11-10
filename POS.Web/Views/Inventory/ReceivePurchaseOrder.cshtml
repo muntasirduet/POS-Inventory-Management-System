@@ -1,0 +1,76 @@
+@model POS.Core.Entities.PurchaseOrder
+@{ ViewData["Title"] = $"Receive Stock – PO #{Model.Id}"; }
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-box-arrow-in-down text-success"></i> Receive Stock <span class="text-muted fs-5">– PO #@Model.Id</span></h2>
+    <a asp-action="PurchaseOrderDetails" asp-route-id="@Model.Id" class="btn btn-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> Enter the quantity actually received for each item. Leave as <strong>0</strong> for items not yet received.
+    Stock will be added to <strong>@Model.Branch.Name</strong>.
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <strong>@Model.Supplier.Name</strong> &mdash; <span class="text-muted">@Model.Branch.Name</span>
+    </div>
+    <div class="card-body">
+        <form method="post" asp-action="ReceivePurchaseOrder" asp-route-id="@Model.Id">
+            @Html.AntiForgeryToken()
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Product</th>
+                            <th class="text-end">Unit Cost</th>
+                            <th class="text-center">Ordered</th>
+                            <th class="text-center">Already Received</th>
+                            <th class="text-center">Still Pending</th>
+                            <th style="width:160px">Receiving Now</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Items)
+                        {
+                            int pending = item.Qty - item.ReceivedQty;
+                            <tr class="@(pending == 0 ? "table-success" : "")">
+                                <td>
+                                    <input type="hidden" name="itemIds" value="@item.Id" />
+                                    <strong>@item.Product.Name</strong><br />
+                                    <small class="text-muted">@item.Product.SKU</small>
+                                </td>
+                                <td class="text-end text-muted">@item.UnitCost.ToString("N2")</td>
+                                <td class="text-center">@item.Qty</td>
+                                <td class="text-center">@item.ReceivedQty</td>
+                                <td class="text-center">
+                                    @if (pending > 0)
+                                    { <span class="badge bg-warning text-dark">@pending</span> }
+                                    else
+                                    { <span class="badge bg-success"><i class="bi bi-check-lg"></i> Done</span> }
+                                </td>
+                                <td>
+                                    @if (pending > 0)
+                                    {
+                                        <input type="number" name="receivedQtys" class="form-control"
+                                               min="0" max="@pending" value="@pending"
+                                               title="Max @pending" />
+                                    }
+                                    else
+                                    {
+                                        <input type="hidden" name="receivedQtys" value="0" />
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex gap-2 mt-2">
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Confirm Receipt</button>
+                <a asp-action="PurchaseOrderDetails" asp-route-id="@Model.Id" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

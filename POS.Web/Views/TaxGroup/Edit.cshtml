@@ -1,0 +1,33 @@
+@model POS.Core.Entities.TaxGroup
+@{ ViewData["Title"] = "Edit Tax Group"; var components = (List<POS.Core.Entities.TaxComponent>)ViewBag.AllComponents; var selected = (List<int>)ViewBag.SelectedComponentIds; }
+<h2>@ViewData["Title"]: <strong>@Model.Name</strong></h2>
+<div class="row"><div class="col-md-7">
+<div class="card"><div class="card-body">
+<form asp-action="Edit" method="post">
+@Html.AntiForgeryToken()
+<input asp-for="Id" type="hidden" />
+<div class="mb-3"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" required /></div>
+<div class="mb-3"><label asp-for="Description" class="form-label"></label><input asp-for="Description" class="form-control" /></div>
+<div class="mb-3 form-check">
+    <input asp-for="IsDefault" class="form-check-input" type="checkbox" />
+    <label asp-for="IsDefault" class="form-check-label">Set as default tax group</label>
+</div>
+<div class="mb-3">
+    <label class="form-label fw-semibold">Tax Components</label>
+    @foreach (var c in components)
+    {
+        var isChecked = selected.Contains(c.Id);
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="componentIds" value="@c.Id" id="comp_@c.Id" @(isChecked ? "checked" : "") />
+            <label class="form-check-label" for="comp_@c.Id">
+                @c.Name (@c.Rate%) @if (c.IsInclusive) { <span class="badge bg-info text-dark ms-1">Inclusive</span> }
+                @if (c.IsCompound) { <span class="badge bg-warning text-dark ms-1">Compound</span> }
+            </label>
+        </div>
+    }
+</div>
+<button type="submit" class="btn btn-primary">Save</button>
+<a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
+</form>
+</div></div>
+</div></div>

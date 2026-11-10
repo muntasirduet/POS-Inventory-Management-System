@@ -15,6 +15,12 @@ public class SaleDto
     public decimal Total { get; set; }
     public SaleStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
+    // Hold metadata
+    public string? HoldLabel { get; set; }
+    public string? HoldNotes { get; set; }
+    public string? HoldCouponCode { get; set; }
+    public decimal HoldDiscountAmount { get; set; }
+    public DateTime? HoldExpiresAt { get; set; }
     public List<SaleItemDto> Items { get; set; } = new();
     public List<PaymentDto> Payments { get; set; } = new();
 }
@@ -28,6 +34,7 @@ public class SaleItemDto
     public decimal UnitPrice { get; set; }
     public decimal Discount { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal TaxRateSnapshot { get; set; } = 0;
 }
 
 public class PaymentDto
@@ -48,4 +55,6 @@ public class CartItemDto
     public decimal UnitPrice { get; set; }
     public decimal Discount { get; set; }
     public decimal LineTotal => (UnitPrice - Discount) * Qty;
+    /// <summary>Selected attributes as key-value pairs (e.g. {"Color": "Red", "Size": "Large"})</summary>
+    public Dictionary<string, string>? SelectedAttributes { get; set; }
 }

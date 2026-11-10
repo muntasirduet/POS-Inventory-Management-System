@@ -2,6 +2,8 @@
 @{
     ViewData["Title"] = "Users";
     var userRoles = ViewBag.UserRoles as Dictionary<string, IList<string>>;
+    var branchDict = ViewBag.BranchDict as Dictionary<int, string>;
+    var branches = ViewBag.Branches as List<POS.Core.Entities.Branch>;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -26,6 +28,9 @@
                 @foreach (var user in Model)
                 {
                     var roles = userRoles != null && userRoles.ContainsKey(user.Id) ? userRoles[user.Id] : new List<string>();
+                    var branchName = user.BranchId.HasValue && branchDict != null && branchDict.ContainsKey(user.BranchId.Value)
+                        ? branchDict[user.BranchId.Value]
+                        : "—";
                     <tr>
                         <td>@user.FullName</td>
                         <td>@user.Email</td>
@@ -35,7 +40,9 @@
                                 <span class="badge bg-primary me-1">@r</span>
                             }
                         </td>
-                        <td>@(user.BranchId?.ToString() ?? "—")</td>
+                        <td>
+                            <span id="branch-@user.Id">@branchName</span>
+                        </td>
                         <td>
                             @if (user.IsActive)
                             {
@@ -49,6 +56,10 @@
                         <td class="text-end">
                             @if (User.IsInRole("SuperAdmin"))
                             {
+                                <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#assignBranchModal"
+                                        onclick="openAssignBranchModal('@user.Id', '@user.FullName', '@user.Email')">
+                                    <i class="bi bi-diagram-2"></i> Assign Branch
+                                </button>
                                 <a asp-action="UserPermissions" asp-route-userId="@user.Id"
                                    class="btn btn-sm btn-outline-secondary">
                                     <i class="bi bi-key"></i> Permissions
@@ -61,3 +72,102 @@
         </table>
     </div>
 </div>
+
+<!-- Assign Branch Modal -->
+<div class="modal fade" id="assignBranchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Assign Branch to Cashier</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="assignBranchForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="modalUserId" name="userId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">User</label>
+                        <div>
+                            <span id="modalUserName"></span> 
+                            <small class="text-muted">(<span id="modalUserEmail"></span>)</small>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalBranchSelect" class="form-label">Select Branch *</label>
+                        <select id="modalBranchSelect" class="form-select" name="branchId" required>
+                            <option value="">-- Choose a branch --</option>
+                            @if (branches != null)
+                            {
+                                @foreach (var branch in branches)
+                                {
+                                    <option value="@branch.Id">@branch.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Assign Branch</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openAssignBranchModal(userId, userName, userEmail) {
+    document.getElementById('modalUserId').value = userId;
+    document.getElementById('modalUserName').textContent = userName;
+    document.getElementById('modalUserEmail').textContent = userEmail;
+    document.getElementById('modalBranchSelect').value = '';
+}
+
+document.getElementById('assignBranchForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const userId = document.getElementById('modalUserId').value;
+    const branchId = document.getElementById('modalBranchSelect').value;
+    
+    if (!branchId) {
+        alert('Please select a branch');
+        return;
+    }
+    
+    // Get CSRF token from form
+    const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]').value;
+    
+    try {
+        const response = await fetch('@Url.Action("AssignBranchToUser", "Admin")', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'RequestVerificationToken': csrfToken
+            },
+            body: JSON.stringify({ 
+                userId: userId, 
+                branchId: parseInt(branchId) 
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update branch display
+            const branchName = document.querySelector(`#modalBranchSelect option[value="${branchId}"]`).textContent;
+            document.getElementById(`branch-${userId}`).textContent = branchName;
+            
+            // Close modal and show success
+            const modal = bootstrap.Modal.getInstance(document.getElementById('assignBranchModal'));
+            modal.hide();
+            alert(result.message);
+            location.reload();
+        } else {
+            alert('Error: ' + (result.message || 'Unknown error occurred'));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to assign branch. Check console for details.');
+    }
+});
+</script>

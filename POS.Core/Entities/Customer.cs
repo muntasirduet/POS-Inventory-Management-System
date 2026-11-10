@@ -5,7 +5,10 @@ public class Customer : BaseEntity
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public string? Address { get; set; }
+    public int? CustomerGroupId { get; set; }
+    public CustomerGroup? CustomerGroup { get; set; }
     public LoyaltyAccount? LoyaltyAccount { get; set; }
     public Membership? Membership { get; set; }
+    public StoreCreditAccount? StoreCreditAccount { get; set; }
     public ICollection<Sale> Sales { get; set; } = new List<Sale>();
 }

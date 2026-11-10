@@ -19,6 +19,18 @@
             </div>
         </div>
     </div>
+    @if (User.HasClaim("permission", "reports.view"))
+    {
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title"><i class="bi bi-receipt-cutoff text-danger"></i> Tax Report</h5>
+                    <p class="card-text text-muted small">VAT / tax collected by rate band. Export CSV for tax filing.</p>
+                    <a asp-action="TaxReport" class="btn btn-danger mt-auto">Open <i class="bi bi-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+    }
     @if (User.HasClaim("permission", "reports.audit"))
     {
         <div class="col-md-4">

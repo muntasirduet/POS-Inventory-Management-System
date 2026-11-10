@@ -1,0 +1,53 @@
+@model IEnumerable<POS.Core.Entities.AttributeDefinition>
+@{ ViewData["Title"] = "Attribute Definitions"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>@ViewData["Title"]</h2>
+    <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Attribute</a>
+</div>
+
+@if (TempData["Success"] != null)
+{ <div class="alert alert-success alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>@TempData["Success"]</div> }
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Name</th><th>Data Type</th><th>Level</th><th>Filterable</th><th>Sort</th><th>Options</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in Model)
+                {
+                    <tr>
+                        <td>@a.Name</td>
+                        <td><span class="badge bg-secondary">@a.DataType</span></td>
+                        <td>
+                            @if (a.IsVariantLevel)
+                            { <span class="badge bg-info text-dark">Variant</span> }
+                            else
+                            { <span class="badge bg-light text-dark border">Product</span> }
+                        </td>
+                        <td>@(a.IsFilterable ? "✓" : "–")</td>
+                        <td>@a.SortOrder</td>
+                        <td>
+                            @if (a.DataType == "Select")
+                            { <small class="text-muted">@string.Join(", ", a.Options.Select(o => o.Value))</small> }
+                            else { <span class="text-muted">–</span> }
+                        </td>
+                        <td class="text-end">
+                            <a asp-action="Edit" asp-route-id="@a.Id" class="btn btn-sm btn-outline-primary">Edit</a>
+                            <form asp-action="Delete" asp-route-id="@a.Id" method="post" class="d-inline"
+                                  onsubmit="return confirm('Delete this attribute? Existing values will be lost.')">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-sm btn-outline-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                { <tr><td colspan="7" class="text-center py-4 text-muted">No attributes defined yet.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>

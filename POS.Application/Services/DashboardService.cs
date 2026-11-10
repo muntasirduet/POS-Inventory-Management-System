@@ -38,6 +38,20 @@ public class DashboardService
         var activeProducts = await _db.Products.CountAsync(p => p.IsActive);
         var pendingPOs = await _db.PurchaseOrders.CountAsync(po => po.Status == POS.Core.Enums.PurchaseOrderStatus.Draft || po.Status == POS.Core.Enums.PurchaseOrderStatus.Ordered);
 
-        return new DashboardDto { TodayRevenue = todayRevenue, TodayTransactions = todayCount, AvgOrderValue = todayCount > 0 ? todayRevenue / todayCount : 0, TopProduct = topProduct, DailySales = dailySales, LowStockItems = lowStock, ActiveProducts = activeProducts, PendingPurchaseOrders = pendingPOs };
+        // Gross margin: (Revenue - COGS) / Revenue for today
+        var todaySaleItems = await _db.SaleItems
+            .Include(si => si.Product)
+            .Where(si => si.Sale.CreatedAt >= today && si.Sale.Status == SaleStatus.Completed
+                      && (!branchId.HasValue || si.Sale.BranchId == branchId))
+            .ToListAsync();
+        decimal todayCogs = todaySaleItems.Sum(si => si.Product.CostPrice * si.Qty);
+        decimal grossMarginPct = todayRevenue > 0 ? Math.Round((todayRevenue - todayCogs) / todayRevenue * 100, 1) : 0;
+
+        // Open shifts count
+        var openShiftsQuery = _db.Shifts.Where(s => s.EndTime == null);
+        if (branchId.HasValue) openShiftsQuery = openShiftsQuery.Where(s => s.BranchId == branchId.Value);
+        int openShifts = await openShiftsQuery.CountAsync();
+
+        return new DashboardDto { TodayRevenue = todayRevenue, TodayTransactions = todayCount, AvgOrderValue = todayCount > 0 ? todayRevenue / todayCount : 0, TopProduct = topProduct, DailySales = dailySales, LowStockItems = lowStock, ActiveProducts = activeProducts, PendingPurchaseOrders = pendingPOs, GrossMarginPct = grossMarginPct, OpenShiftsCount = openShifts };
     }
 }

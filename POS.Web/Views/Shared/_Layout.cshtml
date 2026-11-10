@@ -19,12 +19,34 @@
     </style>
 </head>
 <body>
+    @Html.AntiForgeryToken()
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="/"><i class="bi bi-cash-register"></i> POS System</a>
             <div class="ms-auto d-flex align-items-center gap-3">
                 @if (User.Identity?.IsAuthenticated == true)
                 {
+                    <!-- Branch Selector / Display -->
+                    @if (User.IsInRole("SuperAdmin") || User.IsInRole("StoreOwner"))
+                    {
+                        <!-- Admin: Dropdown to switch branches -->
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-light dropdown-toggle" type="button" id="branchDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-shop"></i> <span id="currentBranch">Select Branch</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" aria-labelledby="branchDropdown" id="branchList">
+                                <li><span class="dropdown-item-text small text-muted">Loading branches...</span></li>
+                            </ul>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Cashier: Read-only branch display -->
+                        <div class="btn btn-sm btn-outline-light disabled">
+                            <i class="bi bi-shop"></i> <span id="currentBranch">Loading...</span>
+                        </div>
+                    }
+
                     <span class="text-light small"><i class="bi bi-person-circle"></i> @User.Identity.Name</span>
                     <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
                         @Html.AntiForgeryToken()
@@ -34,6 +56,126 @@
             </div>
         </div>
     </nav>
+    <script>
+        // Load branches on page load
+        document.addEventListener('DOMContentLoaded', () => loadBranches());
+
+        async function loadBranches() {
+            try {
+                const response = await fetch('/Admin/GetBranchesForSelector');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status}`);
+                }
+                
+                const branches = await response.json();
+                const branchList = document.getElementById('branchList');
+                const currentBranchDisplay = document.getElementById('currentBranch');
+                
+                if (!branches || branches.length === 0) {
+                    currentBranchDisplay.textContent = 'No Branch';
+                    if (branchList) {
+                        branchList.innerHTML = '<li><span class="dropdown-item-text small text-muted">No branches available</span></li>';
+                    }
+                    return;
+                }
+
+                // Check if read-only (cashier)
+                const isReadOnly = branches.length > 0 && branches[0].isReadOnly;
+                
+                if (isReadOnly) {
+                    // For cashiers: just display the branch
+                    currentBranchDisplay.textContent = branches[0].name;
+                    // Disable the button
+                    const btn = document.getElementById('branchDropdown');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.classList.add('disabled');
+                    }
+                } else {
+                    // For admins: show dropdown
+                    let html = '';
+                    const currentBranchId = parseInt(sessionStorage.getItem('selectedBranchId')) || branches[0]?.id || 0;
+                    
+                    branches.forEach(branch => {
+                        const isActive = currentBranchId === branch.id;
+                        html += `<li><a class="dropdown-item ${isActive ? 'active fw-bold' : ''}" href="javascript:void(0)" onclick="setBranch(${branch.id}, '${branch.name}')">
+                            ${isActive ? '<i class="bi bi-check-lg"></i> ' : ''} ${branch.name}
+                        </a></li>`;
+                    });
+
+                    if (branchList) {
+                        branchList.innerHTML = html;
+                    }
+                    
+                    // Set current branch display
+                    const selected = branches.find(b => b.id === currentBranchId);
+                    if (selected) {
+                        currentBranchDisplay.textContent = selected.name;
+                    } else if (branches.length > 0) {
+                        // Auto-select first branch if none selected
+                        setBranch(branches[0].id, branches[0].name);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load branches:', error);
+                document.getElementById('currentBranch').textContent = 'Error Loading';
+                const branchList = document.getElementById('branchList');
+                if (branchList) {
+                    branchList.innerHTML = '<li><span class="dropdown-item-text small text-danger"><i class="bi bi-exclamation-circle"></i> Error loading branches</span></li>';
+                }
+            }
+        }
+
+        async function setBranch(branchId, branchName) {
+            try {
+                const formData = new FormData();
+                formData.append('branchId', branchId);
+                formData.append('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]')?.value || '');
+                
+                const response = await fetch('/Admin/SetBranch', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    document.getElementById('currentBranch').textContent = branchName;
+                    sessionStorage.setItem('selectedBranchId', branchId);
+                    // Reload page to update ViewBag and refresh branch-dependent content
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 300);
+                } else {
+                    showNotification('Error setting branch', 'danger');
+                }
+            } catch (error) {
+                console.error('Failed to set branch:', error);
+                showNotification('Error setting branch', 'danger');
+            }
+        }
+
+        function showNotification(message, type) {
+            // Find or create notification container
+            let container = document.getElementById('notificationContainer');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'notificationContainer';
+                container.className = 'position-fixed top-0 end-0 p-3';
+                container.style.zIndex = '9999';
+                document.body.appendChild(container);
+            }
+
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show small`;
+            alert.innerHTML = `${message}<button type="button" class="btn-close btn-close-${type === 'success' ? 'white' : ''}" data-bs-dismiss="alert"></button>`;
+            container.appendChild(alert);
+
+            // Auto-dismiss after 3 seconds
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
+        }
+    </script>
     <div class="d-flex flex-grow-1">
         @if (User.Identity?.IsAuthenticated == true)
         {
@@ -51,6 +193,16 @@
                         {
                             <li><a class="nav-link" asp-controller="Sale" asp-action="Index"><i class="bi bi-receipt"></i> Sales History</a></li>
                         }
+                        @if (User.HasClaim("permission", "sales.return"))
+                        {
+                            <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="SaleReturn"?"active":"")" asp-controller="SaleReturn" asp-action="Index"><i class="bi bi-arrow-return-left"></i> Returns</a></li>
+                        }
+                    }
+                    @if (User.HasClaim("permission", "shifts.manage"))
+                    {
+                        <div class="section-title">Operations</div>
+                        <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Shift"&&ViewContext.RouteData.Values["action"]?.ToString()=="Current"?"active":"")" asp-controller="Shift" asp-action="Current"><i class="bi bi-clock-history"></i> My Shift</a></li>
+                        <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Shift"&&ViewContext.RouteData.Values["action"]?.ToString()=="Index"?"active":"")" asp-controller="Shift" asp-action="Index"><i class="bi bi-calendar-week"></i> Shift History</a></li>
                     }
                     @if (User.HasClaim("permission", "products.view") || User.HasClaim("permission", "categories.view"))
                     {
@@ -63,6 +215,7 @@
                         {
                             <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Category"?"active":"")" asp-controller="Category" asp-action="Index"><i class="bi bi-tags"></i> Categories</a></li>
                         }
+                        <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="AttributeDefinition"?"active":"")" asp-controller="AttributeDefinition" asp-action="Index"><i class="bi bi-sliders"></i> Attributes</a></li>
                     }
                     @if (User.HasClaim("permission", "inventory.view"))
                     {
@@ -83,11 +236,32 @@
                     {
                         <div class="section-title">Customers</div>
                         <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Customer"?"active":"")" asp-controller="Customer" asp-action="Index"><i class="bi bi-people"></i> Customers</a></li>
+                        @if (User.HasClaim("permission", "pricing.manage"))
+                        {
+                            <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="CustomerGroup"?"active":"")" asp-controller="CustomerGroup" asp-action="Index"><i class="bi bi-diagram-3"></i> Customer Groups</a></li>
+                            <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Coupon"?"active":"")" asp-controller="Coupon" asp-action="Index"><i class="bi bi-ticket-perforated"></i> Coupons</a></li>
+                            <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Discount"?"active":"")" asp-controller="Discount" asp-action="Index"><i class="bi bi-percent"></i> Discounts</a></li>
+                        }
+                        @if (User.HasClaim("permission", "giftcards.manage"))
+                        {
+                            <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="GiftCard"?"active":"")" asp-controller="GiftCard" asp-action="Index"><i class="bi bi-gift"></i> Gift Cards</a></li>
+                        }
+                        @if (User.HasClaim("permission", "storecredit.manage"))
+                        {
+                            <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="StoreCredit"?"active":"")" asp-controller="StoreCredit" asp-action="Index"><i class="bi bi-wallet2"></i> Store Credit</a></li>
+                        }
+                        @if (User.HasClaim("permission", "settings.manage"))
+                        {
+                            <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Reward"?"active":"")" asp-controller="Reward" asp-action="Index"><i class="bi bi-star"></i> Loyalty Rewards</a></li>
+                        }
                     }
                     @if (User.HasClaim("permission", "reports.view"))
                     {
                         <div class="section-title">Reports</div>
-                        <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Report"?"active":"")" asp-controller="Report" asp-action="Index"><i class="bi bi-bar-chart"></i> Reports</a></li>
+                        <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="Report"&&ViewContext.RouteData.Values["action"]?.ToString()=="Index"?"active":"")" asp-controller="Report" asp-action="Index"><i class="bi bi-bar-chart"></i> Reports</a></li>
+                        <li><a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString()=="Sales"?"active":"")" asp-controller="Report" asp-action="Sales"><i class="bi bi-receipt"></i> Sales Report</a></li>
+                        <li><a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString()=="TaxReport"?"active":"")" asp-controller="Report" asp-action="TaxReport"><i class="bi bi-receipt-cutoff"></i> Tax Report</a></li>
+                        <li><a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString()=="Inventory"?"active":"")" asp-controller="Report" asp-action="Inventory"><i class="bi bi-boxes"></i> Inventory Report</a></li>
                     }
                     @if (User.IsInRole("SuperAdmin") || User.IsInRole("StoreOwner"))
                     {
@@ -95,6 +269,8 @@
                         <li><a class="nav-link" asp-controller="Admin" asp-action="Users"><i class="bi bi-person-gear"></i> Users</a></li>
                         <li><a class="nav-link" asp-controller="Admin" asp-action="Branches"><i class="bi bi-shop"></i> Branches</a></li>
                         <li><a class="nav-link" asp-controller="Admin" asp-action="Settings"><i class="bi bi-gear"></i> Settings</a></li>
+                        <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="SystemConfig"?"active":"")" asp-controller="SystemConfig" asp-action="Index"><i class="bi bi-sliders"></i> System Config</a></li>
+                        <li><a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString()=="AttributeDefinition"?"active":"")" asp-controller="AttributeDefinition" asp-action="Index"><i class="bi bi-tag"></i> Attribute Definitions</a></li>
                         @if (User.IsInRole("SuperAdmin"))
                         {
                             <li><a class="nav-link" asp-controller="Admin" asp-action="Roles"><i class="bi bi-shield-lock"></i> Roles &amp; Permissions</a></li>

@@ -1,8 +1,111 @@
 @model POS.Core.Entities.Category
-@{ ViewData["Title"] = "Edit Category"; }
-<h2>Edit Category</h2><div class="card"><div class="card-body"><form asp-action="Edit" method="post">@Html.AntiForgeryToken()
+@using POS.Core.Entities
+@{ 
+    ViewData["Title"] = "Edit Category"; 
+    var allAttributes = ViewBag.AllAttributes as IEnumerable<AttributeDefinition> ?? new List<AttributeDefinition>();
+    var linkedAttributeIds = ViewBag.LinkedAttributeIds as List<int> ?? new List<int>();
+}
+<h2>Edit Category</h2>
+<div class="row"><div class="col-md-7">
+<div class="card"><div class="card-body">
+<form asp-action="Edit" method="post">
+@Html.AntiForgeryToken()
 <input asp-for="Id" type="hidden"/>
 <div class="mb-3"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" required/></div>
 <div class="mb-3"><label asp-for="ParentCategoryId" class="form-label">Parent</label><select asp-for="ParentCategoryId" asp-items="ViewBag.Parents" class="form-select"><option value="">-- None --</option></select></div>
-<button type="submit" class="btn btn-primary">Save</button><a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
-</form></div></div>
+<div class="mb-3"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="2"></textarea></div>
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label asp-for="IconClass" class="form-label">Icon Class</label>
+        <input asp-for="IconClass" class="form-control" placeholder="bi-bag" />
+    </div>
+    <div class="col-md-3 mb-3">
+        <label asp-for="DisplayColor" class="form-label">Button Color</label>
+        <input asp-for="DisplayColor" type="color" class="form-control form-control-color w-100" />
+    </div>
+    <div class="col-md-3 mb-3">
+        <label asp-for="SortOrder" class="form-label">Sort Order</label>
+        <input asp-for="SortOrder" type="number" class="form-control" />
+    </div>
+</div>
+<div class="mb-3"><label asp-for="DefaultTaxGroupId" class="form-label">Default Tax Group</label>
+    <select asp-for="DefaultTaxGroupId" asp-items="ViewBag.TaxGroups" class="form-select"><option value="">-- Inherit --</option></select>
+</div>
+<div class="mb-3 form-check">
+    <input asp-for="IsPosVisible" class="form-check-input" type="checkbox" />
+    <label asp-for="IsPosVisible" class="form-check-label">Visible in POS terminal category picker</label>
+</div>
+
+<!-- ← NEW: Attribute Template Selection -->
+<hr class="my-4"/>
+<div class="mb-3">
+    <h5 class="mb-3"><i class="bi bi-sliders"></i> Product Attributes for This Category</h5>
+    <p class="small text-muted mb-3">Select which attributes should be available for products in this category. Only selected attributes will appear when creating/editing products.</p>
+    <div id="attributeCheckboxes" class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+        @foreach (var attr in allAttributes)
+        {
+            var isLinked = linkedAttributeIds.Contains(attr.Id);
+            <div class="form-check mb-2">
+                <input class="form-check-input category-attr-checkbox" type="checkbox" value="@attr.Id" 
+                       id="attr_@attr.Id" @(isLinked ? "checked" : "") />
+                <label class="form-check-label" for="attr_@attr.Id">
+                    <strong>@attr.Name</strong>
+                    @if (attr.DataType == "Select" && attr.Options?.Count > 0)
+                    {
+                        <small class="text-muted">(@attr.DataType -
+                            @{
+                                var optionStr = string.Join(", ", attr.Options.OrderBy(o => o.SortOrder).Take(3).Select(o => o.Value));
+                                if (attr.Options.Count > 3) optionStr += "...";
+                            }
+                            @optionStr
+                        )</small>
+                    }
+                    else
+                    {
+                        <small class="text-muted">(@attr.DataType)</small>
+                    }
+                </label>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Save Attributes via AJAX -->
+<button type="button" class="btn btn-success btn-sm" onclick="saveCategoryAttributes()">
+    <i class="bi bi-check-circle"></i> Save Attributes
+</button>
+
+<button type="submit" class="btn btn-primary">Save Category</button><a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
+
+<script>
+async function saveCategoryAttributes() {
+    const categoryId = @Model.Id;
+    const checkedBoxes = document.querySelectorAll('.category-attr-checkbox:checked');
+    const attributeIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+    
+    try {
+        const response = await fetch('/Category/SaveCategoryAttributes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+            },
+            body: JSON.stringify({ categoryId, attributeIds })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            alert('✓ Category attributes saved! Products in this category will now only show these attributes.');
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to save attributes');
+    }
+}
+</script>
+
+</form>
+</div></div>
+</div></div>

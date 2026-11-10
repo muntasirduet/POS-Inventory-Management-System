@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using POS.Application.Services;
 using POS.Core.Entities;
+using POS.Core.Enums;
 using POS.Infrastructure.Data;
 using POS.Infrastructure.Identity;
 using POS.Web.Authorization;
@@ -112,6 +113,124 @@ public class InventoryController : Controller
         order.Total = qtys.Zip(costs, (q, c) => q * c).Sum();
         await _db.SaveChangesAsync();
         TempData["Success"] = "Purchase order created.";
+        return RedirectToAction(nameof(PurchaseOrders));
+    }
+
+    [PermissionAuthorize("inventory.purchase")]
+    public async Task<IActionResult> PurchaseOrderDetails(int id)
+    {
+        var order = await _db.PurchaseOrders
+            .Include(po => po.Supplier)
+            .Include(po => po.Branch)
+            .Include(po => po.Items).ThenInclude(i => i.Product)
+            .FirstOrDefaultAsync(po => po.Id == id);
+        if (order == null) return NotFound();
+        return View(order);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, PermissionAuthorize("inventory.purchase")]
+    public async Task<IActionResult> SubmitPurchaseOrder(int id)
+    {
+        var order = await _db.PurchaseOrders.FindAsync(id);
+        if (order == null) return NotFound();
+        if (order.Status != PurchaseOrderStatus.Draft)
+        {
+            TempData["Error"] = "Only Draft orders can be submitted.";
+            return RedirectToAction(nameof(PurchaseOrderDetails), new { id });
+        }
+        order.Status = PurchaseOrderStatus.Ordered;
+        await _db.SaveChangesAsync();
+        TempData["Success"] = "Purchase order submitted to supplier.";
+        return RedirectToAction(nameof(PurchaseOrderDetails), new { id });
+    }
+
+    [PermissionAuthorize("inventory.purchase")]
+    public async Task<IActionResult> ReceivePurchaseOrder(int id)
+    {
+        var order = await _db.PurchaseOrders
+            .Include(po => po.Supplier)
+            .Include(po => po.Branch)
+            .Include(po => po.Items).ThenInclude(i => i.Product)
+            .FirstOrDefaultAsync(po => po.Id == id);
+        if (order == null) return NotFound();
+        if (order.Status != PurchaseOrderStatus.Ordered && order.Status != PurchaseOrderStatus.PartiallyReceived)
+        {
+            TempData["Error"] = "Only Ordered or Partially Received orders can receive stock.";
+            return RedirectToAction(nameof(PurchaseOrderDetails), new { id });
+        }
+        return View(order);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, PermissionAuthorize("inventory.purchase")]
+    public async Task<IActionResult> ReceivePurchaseOrder(int id, List<int> itemIds, List<int> receivedQtys)
+    {
+        var order = await _db.PurchaseOrders
+            .Include(po => po.Items)
+            .FirstOrDefaultAsync(po => po.Id == id);
+        if (order == null) return NotFound();
+        if (order.Status != PurchaseOrderStatus.Ordered && order.Status != PurchaseOrderStatus.PartiallyReceived)
+        {
+            TempData["Error"] = "Cannot receive stock for this order.";
+            return RedirectToAction(nameof(PurchaseOrderDetails), new { id });
+        }
+
+        var user = await _userManager.GetUserAsync(User);
+        for (int i = 0; i < itemIds.Count; i++)
+        {
+            var item = order.Items.FirstOrDefault(x => x.Id == itemIds[i]);
+            if (item == null) continue;
+            int incoming = Math.Max(0, Math.Min(receivedQtys[i], item.Qty - item.ReceivedQty));
+            if (incoming == 0) continue;
+            item.ReceivedQty += incoming;
+
+            // Update Product.CostPrice to reflect latest purchase cost (last-cost method)
+            var product = await _db.Products.FindAsync(item.ProductId);
+            if (product != null && item.UnitCost > 0)
+                product.CostPrice = item.UnitCost;
+
+            // Update stock
+            var stock = await _db.StockItems.FirstOrDefaultAsync(s => s.ProductId == item.ProductId && s.BranchId == order.BranchId);
+            if (stock == null)
+                _db.StockItems.Add(new StockItem { ProductId = item.ProductId, BranchId = order.BranchId, QtyOnHand = incoming });
+            else
+                stock.QtyOnHand += incoming;
+
+            _db.StockMovements.Add(new StockMovement
+            {
+                ProductId = item.ProductId,
+                ToBranchId = order.BranchId,
+                Qty = incoming,
+                Type = StockMovementType.Restock,
+                Reference = $"PO-{order.Id}",
+                Notes = $"Received from PO #{order.Id}",
+                CreatedById = user!.Id
+            });
+        }
+
+        bool allReceived = order.Items.All(x => x.ReceivedQty >= x.Qty);
+        bool anyReceived = order.Items.Any(x => x.ReceivedQty > 0);
+        order.Status = allReceived ? PurchaseOrderStatus.Received
+                     : anyReceived ? PurchaseOrderStatus.PartiallyReceived
+                     : order.Status;
+
+        await _db.SaveChangesAsync();
+        TempData["Success"] = allReceived ? "All items received. Order completed." : "Stock partially received.";
+        return RedirectToAction(nameof(PurchaseOrderDetails), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, PermissionAuthorize("inventory.purchase")]
+    public async Task<IActionResult> CancelPurchaseOrder(int id)
+    {
+        var order = await _db.PurchaseOrders.FindAsync(id);
+        if (order == null) return NotFound();
+        if (order.Status == PurchaseOrderStatus.Received)
+        {
+            TempData["Error"] = "Received orders cannot be cancelled.";
+            return RedirectToAction(nameof(PurchaseOrderDetails), new { id });
+        }
+        order.Status = PurchaseOrderStatus.Cancelled;
+        await _db.SaveChangesAsync();
+        TempData["Success"] = "Purchase order cancelled.";
         return RedirectToAction(nameof(PurchaseOrders));
     }
 }

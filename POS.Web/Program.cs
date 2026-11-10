@@ -35,6 +35,12 @@ builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<AuditService>();
+builder.Services.AddScoped<SaleReturnService>();
+builder.Services.AddScoped<ShiftService>();
+builder.Services.AddScoped<LoyaltyService>();
+builder.Services.AddScoped<GiftCardService>();
+builder.Services.AddScoped<StoreCreditService>();
+builder.Services.AddScoped<PriceRuleService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IClaimsTransformation, PermissionClaimsTransformation>();
 
@@ -74,7 +80,9 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    await context.Database.MigrateAsync();
     await DbSeeder.SeedAsync(context, userManager, roleManager);
+
 }
 
 app.Run();

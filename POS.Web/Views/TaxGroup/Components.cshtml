@@ -1,0 +1,45 @@
+@model IEnumerable<POS.Core.Entities.TaxComponent>
+@{ ViewData["Title"] = "Tax Components"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <a asp-action="Index" class="text-muted small me-2">← Tax Groups</a>
+        <h2 class="d-inline">@ViewData["Title"]</h2>
+    </div>
+    <a asp-action="CreateComponent" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Component</a>
+</div>
+
+@if (TempData["Success"] != null)
+{ <div class="alert alert-success alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>@TempData["Success"]</div> }
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr><th>Name</th><th>Code</th><th>Rate</th><th>Inclusive</th><th>Compound</th><th>Sort</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var c in Model)
+                {
+                    <tr>
+                        <td>@c.Name</td>
+                        <td><code>@c.Code</code></td>
+                        <td><strong>@c.Rate%</strong></td>
+                        <td>@(c.IsInclusive ? "Yes" : "–")</td>
+                        <td>@(c.IsCompound ? "Yes" : "–")</td>
+                        <td>@c.SortOrder</td>
+                        <td class="text-end">
+                            <a asp-action="EditComponent" asp-route-id="@c.Id" class="btn btn-sm btn-outline-primary">Edit</a>
+                            <form asp-action="DeleteComponent" asp-route-id="@c.Id" method="post" class="d-inline"
+                                  onsubmit="return confirm('Delete this tax component?')">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-sm btn-outline-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                { <tr><td colspan="7" class="text-center py-4 text-muted">No tax components yet.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>

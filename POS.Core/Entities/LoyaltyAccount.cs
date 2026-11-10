@@ -6,4 +6,5 @@ public class LoyaltyAccount : BaseEntity
     public int Points { get; set; } = 0;
     public decimal TotalSpend { get; set; } = 0;
     public string Tier { get; set; } = "Standard";
+    public ICollection<LoyaltyTransaction> Transactions { get; set; } = new List<LoyaltyTransaction>();
 }

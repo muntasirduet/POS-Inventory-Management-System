@@ -1,0 +1,40 @@
+@model POS.Core.Entities.Customer
+@{ ViewData["Title"] = "Edit Customer"; }
+<div class="row justify-content-center">
+<div class="col-md-6">
+<div class="card">
+    <div class="card-header"><h5 class="mb-0"><i class="bi bi-person-gear"></i> Edit Customer</h5></div>
+    <div class="card-body">
+        <form asp-action="Edit" asp-route-id="@Model.Id" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="Id" />
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger d-none"></div>
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label">Full Name <span class="text-danger">*</span></label>
+                <input asp-for="Name" class="form-control" required />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Phone" class="form-label">Phone</label>
+                <input asp-for="Phone" class="form-control" type="tel" />
+            </div>
+            <div class="mb-3">
+                <label asp-for="Email" class="form-label">Email</label>
+                <input asp-for="Email" class="form-control" type="email" />
+            </div>
+            <div class="mb-3">
+                <label asp-for="Address" class="form-label">Address</label>
+                <textarea asp-for="Address" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="mb-3">
+                <label asp-for="CustomerGroupId" class="form-label">Customer Group</label>
+                <select asp-for="CustomerGroupId" class="form-select" asp-items="@(new SelectList(ViewBag.CustomerGroups as IEnumerable<POS.Core.Entities.CustomerGroup> ?? [], "Id", "Name"))"><option value="">— None —</option></select>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+</div></div>

@@ -1,0 +1,104 @@
+@model POS.Core.Entities.Sale
+@{ ViewData["Title"] = "Process Return"; }
+
+@if (TempData["Error"] != null) { <div class="alert alert-danger">@TempData["Error"]</div> }
+
+<h2>@ViewData["Title"] — <small class="text-muted">@Model.SaleNumber</small></h2>
+<div class="row mb-3">
+    <div class="col-auto"><strong>Customer:</strong> @(Model.Customer?.Name ?? "Walk-in")</div>
+    <div class="col-auto"><strong>Date:</strong> @Model.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</div>
+    <div class="col-auto"><strong>Total:</strong> $@Model.Total.ToString("F2")</div>
+</div>
+
+<form asp-action="NewReturn" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="saleId" value="@Model.Id" />
+
+    <div class="card mb-3">
+        <div class="card-header fw-semibold">Select Items to Return</div>
+        <div class="card-body p-0">
+            <table class="table mb-0">
+                <thead class="table-light">
+                    <tr><th style="width:40px"></th><th>Product</th><th>Orig. Qty</th><th>Available</th><th style="width:120px">Return Qty</th><th>Unit Price</th></tr>
+                </thead>
+                <tbody>
+                    @{ var returned = (Dictionary<int,int>)(ViewBag.AlreadyReturned ?? new Dictionary<int,int>()); }
+                    @for (int i = 0; i < Model.Items.Count; i++)
+                    {
+                        var item = Model.Items.ToList()[i];
+                        var alreadyRet = returned.GetValueOrDefault(item.Id, 0);
+                        var available = item.Qty - alreadyRet;
+                        <tr class="@(available == 0 ? "table-secondary text-muted" : "")">
+                            <td class="text-center"><input class="form-check-input item-check" type="checkbox" @(available > 0 ? "" : "disabled") onchange="toggleRow(this,@i)" /></td>
+                            <td>
+                                @item.Product?.Name
+                                <input type="hidden" name="saleItemIds[@i]" value="@item.Id" class="item-id" />
+                            </td>
+                            <td>@item.Qty</td>
+                            <td>@available @(available == 0 ? "<span class='badge bg-secondary'>Fully returned</span>" : "")</td>
+                            <td>
+                                <input type="number" name="returnQtys[@i]" class="form-control form-control-sm return-qty" id="qty_@i"
+                                       min="0" max="@available" value="0" @(available == 0 ? "disabled" : "") />
+                            </td>
+                            <td>$@item.UnitPrice.ToString("F2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-5">
+            <label class="form-label fw-semibold">Return Reason <span class="text-danger">*</span></label>
+            <textarea name="reason" class="form-control" rows="2" required placeholder="e.g. Defective, Wrong item, Customer changed mind"></textarea>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-semibold">Refund Method</label>
+            <select name="refundMethod" class="form-select">
+                <option value="Cash">Cash</option>
+                <option value="Card">Card</option>
+                <option value="StoreCredit">Store Credit</option>
+                <option value="Exchange">Exchange</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <div class="form-check mb-2">
+                <input type="checkbox" name="restockItems" value="true" class="form-check-input" id="restockCheck" checked />
+                <input type="hidden" name="restockItems" value="false" />
+                <label class="form-check-label" for="restockCheck">Restock items</label>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <label class="form-label">Notes</label>
+            <input type="text" name="notes" class="form-control" />
+        </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-3">
+        <button type="submit" class="btn btn-danger"><i class="bi bi-arrow-return-left me-1"></i>Process Return</button>
+        <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+        <span class="ms-3 fw-bold" id="refundTotal">Refund: $0.00</span>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+const prices = [@string.Join(",", Model.Items.Select(i => i.UnitPrice.ToString("F4")))];
+function toggleRow(cb, i) {
+    const qty = document.getElementById('qty_'+i);
+    const max = parseInt(qty.max) || 0;
+    if (cb.checked && qty.value == 0) qty.value = max;
+    else if (!cb.checked) qty.value = 0;
+    calcTotal();
+}
+function calcTotal() {
+    let total = 0;
+    document.querySelectorAll('.return-qty').forEach((inp, i) => {
+        total += (parseFloat(inp.value) || 0) * (prices[i] || 0);
+    });
+    document.getElementById('refundTotal').textContent = 'Refund: $' + total.toFixed(2);
+}
+document.querySelectorAll('.return-qty').forEach(inp => inp.addEventListener('input', calcTotal));
+</script>
+}

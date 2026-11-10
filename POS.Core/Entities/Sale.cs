@@ -8,12 +8,20 @@ public class Sale : BaseEntity
     public Customer? Customer { get; set; }
     public int? BranchId { get; set; }
     public Branch? Branch { get; set; }
+    public int? TerminalId { get; set; }
+    public Terminal? Terminal { get; set; }
     public decimal SubTotal { get; set; }
     public decimal Tax { get; set; }
     public decimal Discount { get; set; }
     public decimal Total { get; set; }
     public SaleStatus Status { get; set; } = SaleStatus.Active;
     public string? Notes { get; set; }
+    // Hold-specific fields
+    public string? HoldLabel { get; set; }
+    public string? HoldNotes { get; set; }
+    public string? HoldCouponCode { get; set; }
+    public decimal HoldDiscountAmount { get; set; } = 0;
+    public DateTime? HoldExpiresAt { get; set; }
     public ICollection<SaleItem> Items { get; set; } = new List<SaleItem>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
     public Receipt? Receipt { get; set; }

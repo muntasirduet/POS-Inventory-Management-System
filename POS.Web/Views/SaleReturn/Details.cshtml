@@ -1,0 +1,51 @@
+@model POS.Core.Entities.SaleReturn
+@{ ViewData["Title"] = $"Return #{Model.Id}"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>@ViewData["Title"]</h2>
+    <a asp-action="Index" class="btn btn-outline-secondary">← Back to Returns</a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <div class="card h-100"><div class="card-body">
+            <h6 class="card-title text-muted">Return Details</h6>
+            <dl class="row mb-0">
+                <dt class="col-sm-5">Original Sale</dt><dd class="col-sm-7"><a asp-controller="Sale" asp-action="Details" asp-route-id="@Model.SaleId">@Model.Sale?.SaleNumber</a></dd>
+                <dt class="col-sm-5">Date</dt><dd class="col-sm-7">@Model.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</dd>
+                <dt class="col-sm-5">Reason</dt><dd class="col-sm-7">@Model.Reason</dd>
+                <dt class="col-sm-5">Refund Method</dt><dd class="col-sm-7"><span class="badge bg-secondary">@Model.RefundMethod</span></dd>
+                <dt class="col-sm-5">Restocked</dt><dd class="col-sm-7">@(Model.RestockItems ? "Yes" : "No")</dd>
+                @if (!string.IsNullOrEmpty(Model.Notes)) { <dt class="col-sm-5">Notes</dt><dd class="col-sm-7">@Model.Notes</dd> }
+            </dl>
+        </div></div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100 border-success"><div class="card-body text-success text-center d-flex flex-column justify-content-center">
+            <div class="fs-1 fw-bold">$@Model.RefundAmount.ToString("F2")</div>
+            <div class="text-muted">Total Refunded</div>
+        </div></div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header fw-semibold">Returned Items</div>
+    <div class="card-body p-0">
+        <table class="table mb-0">
+            <thead class="table-light"><tr><th>Product</th><th>Qty Returned</th><th>Unit Price</th><th>Line Total</th></tr></thead>
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>@item.Product?.Name</td>
+                        <td>@item.ReturnQty</td>
+                        <td>$@item.UnitPrice.ToString("F2")</td>
+                        <td>$@item.LineTotal.ToString("F2")</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot class="table-light">
+                <tr><th colspan="3" class="text-end">Total Refund</th><th>$@Model.RefundAmount.ToString("F2")</th></tr>
+            </tfoot>
+        </table>
+    </div>
+</div>

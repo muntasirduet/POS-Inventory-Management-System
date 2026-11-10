@@ -1,7 +1,36 @@
 @model POS.Core.Entities.Category
 @{ ViewData["Title"] = "Add Category"; }
-<h2>Add Category</h2><div class="card"><div class="card-body"><form asp-action="Create" method="post">@Html.AntiForgeryToken()
-<div class="mb-3"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" required/></div>
+<h2>Add Category</h2>
+<div class="row"><div class="col-md-7">
+<div class="card"><div class="card-body">
+<form asp-action="Create" method="post">
+@Html.AntiForgeryToken()
+<div class="mb-3"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" required autofocus /></div>
 <div class="mb-3"><label asp-for="ParentCategoryId" class="form-label">Parent</label><select asp-for="ParentCategoryId" asp-items="ViewBag.Parents" class="form-select"><option value="">-- None --</option></select></div>
+<div class="mb-3"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="2"></textarea></div>
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label asp-for="IconClass" class="form-label">Icon Class <small class="text-muted">(Bootstrap Icons, e.g. bi-bag)</small></label>
+        <input asp-for="IconClass" class="form-control" placeholder="bi-bag" />
+    </div>
+    <div class="col-md-3 mb-3">
+        <label asp-for="DisplayColor" class="form-label">Button Color</label>
+        <input asp-for="DisplayColor" type="color" class="form-control form-control-color w-100" value="#6c757d" />
+    </div>
+    <div class="col-md-3 mb-3">
+        <label asp-for="SortOrder" class="form-label">Sort Order</label>
+        <input asp-for="SortOrder" type="number" class="form-control" />
+    </div>
+</div>
+<div class="mb-3"><label asp-for="DefaultTaxGroupId" class="form-label">Default Tax Group</label>
+    <select asp-for="DefaultTaxGroupId" asp-items="ViewBag.TaxGroups" class="form-select"><option value="">-- Inherit --</option></select>
+    <div class="form-text">New products in this category will auto-inherit this tax group.</div>
+</div>
+<div class="mb-3 form-check">
+    <input asp-for="IsPosVisible" class="form-check-input" type="checkbox" checked />
+    <label asp-for="IsPosVisible" class="form-check-label">Visible in POS terminal category picker</label>
+</div>
 <button type="submit" class="btn btn-primary">Save</button><a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
-</form></div></div>
+</form>
+</div></div>
+</div></div>

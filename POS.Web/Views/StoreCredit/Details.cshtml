@@ -1,0 +1,41 @@
+@model POS.Core.Entities.StoreCreditAccount?
+@{ ViewData["Title"] = "Store Credit — " + ViewBag.Customer.Name; var customer = ViewBag.Customer as POS.Core.Entities.Customer; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-wallet2"></i> Store Credit: @customer!.Name</h4>
+    <div class="d-flex gap-2">
+        <a asp-action="Issue" asp-route-customerId="@customer.Id" class="btn btn-success btn-sm">Issue Credit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Back</a>
+    </div>
+</div>
+@if (Model == null)
+{
+    <div class="alert alert-info">This customer has no store credit account yet.</div>
+}
+else
+{
+    <div class="row g-3 mb-3">
+        <div class="col-md-4"><div class="card text-white bg-success"><div class="card-body text-center"><div class="small">Available Balance</div><div class="display-5 fw-bold">$@Model.Balance.ToString("0.00")</div></div></div></div>
+        <div class="col-md-4"><div class="card bg-light"><div class="card-body text-center"><div class="small text-muted">Total Issued</div><div class="fs-3 fw-bold">$@Model.TotalIssued.ToString("0.00")</div></div></div></div>
+    </div>
+    <div class="card">
+        <div class="card-header">Transaction History</div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead class="table-light"><tr><th>Date</th><th>Type</th><th>Amount</th><th>Balance After</th><th>Notes</th></tr></thead>
+                <tbody>
+                    @foreach (var tx in Model.Transactions)
+                    {
+                        <tr>
+                            <td>@tx.CreatedAt.ToString("MMM d, yyyy HH:mm")</td>
+                            <td><span class="badge @(tx.Type == "Issue" ? "bg-success" : tx.Type == "Redeem" ? "bg-warning text-dark" : "bg-secondary")">@tx.Type</span></td>
+                            <td class="@(tx.Type == "Issue" ? "text-success fw-bold" : "text-danger fw-bold")">@(tx.Type == "Issue" ? "+" : "-")$@tx.Amount.ToString("0.00")</td>
+                            <td>$@tx.BalanceAfter.ToString("0.00")</td>
+                            <td class="text-muted small">@tx.Notes</td>
+                        </tr>
+                    }
+                    @if (!Model.Transactions.Any()) { <tr><td colspan="5" class="text-muted text-center py-3">No transactions.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

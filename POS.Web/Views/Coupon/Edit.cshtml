@@ -1,0 +1,60 @@
+@model POS.Core.Entities.Coupon
+@{ ViewData["Title"] = "Edit Coupon"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-ticket-perforated"></i> Edit Coupon</h4>
+    <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+<div class="card" style="max-width:520px">
+    <div class="card-body">
+        <form asp-action="Edit" method="post">
+            @Html.AntiForgeryToken()
+            <input asp-for="Id" type="hidden" />
+            <div class="mb-3">
+                <label class="form-label">Code</label>
+                <input asp-for="Code" class="form-control text-uppercase" required />
+                <span asp-validation-for="Code" class="text-danger small"></span>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-6">
+                    <label class="form-label">Discount Type</label>
+                    <select asp-for="Type" class="form-select"
+                            asp-items="@Html.GetEnumSelectList<POS.Core.Enums.DiscountType>()"></select>
+                </div>
+                <div class="col-6">
+                    <label class="form-label">Value</label>
+                    <input asp-for="Value" type="number" step="0.01" min="0" class="form-control" required />
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Restrict to Customer (optional)</label>
+                <select asp-for="CustomerId" class="form-select">
+                    <option value="">Any customer</option>
+                    @foreach (var c in ViewBag.Customers as List<POS.Core.Entities.Customer> ?? new())
+                    {
+                        <option value="@c.Id" selected="@(Model.CustomerId == c.Id)">@c.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-6">
+                    <label class="form-label">Expires At</label>
+                    <input asp-for="ExpiresAt" type="datetime-local" class="form-control" />
+                </div>
+                <div class="col-6 d-flex align-items-end">
+                    <div class="form-check me-3">
+                        <input asp-for="IsSingleUse" class="form-check-input" type="checkbox" />
+                        <label asp-for="IsSingleUse" class="form-check-label">Single use</label>
+                    </div>
+                    <div class="form-check">
+                        <input asp-for="IsUsed" class="form-check-input" type="checkbox" />
+                        <label asp-for="IsUsed" class="form-check-label">Marked used</label>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

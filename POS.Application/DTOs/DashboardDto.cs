@@ -5,6 +5,8 @@ public class DashboardDto
     public int TodayTransactions { get; set; }
     public decimal AvgOrderValue { get; set; }
     public string TopProduct { get; set; } = string.Empty;
+    public decimal GrossMarginPct { get; set; }
+    public int OpenShiftsCount { get; set; }
     public List<DailySalesDto> DailySales { get; set; } = new();
     public List<LowStockDto> LowStockItems { get; set; } = new();
     public int ActiveProducts { get; set; }

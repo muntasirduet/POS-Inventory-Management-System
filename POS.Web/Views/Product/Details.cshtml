@@ -1,105 +1,781 @@
 @model POS.Core.Entities.Product
-@{ ViewData["Title"] = Model.Name; }
-<h2>@Model.Name</h2>
-<div class="row"><div class="col-md-4">@if(!string.IsNullOrEmpty(Model.ImageUrl)){<img src="@Model.ImageUrl" class="img-fluid rounded shadow"/>}else{<div class="bg-light text-center py-5 rounded">No Image</div>}</div>
-<div class="col-md-8"><dl class="row">
-    <dt class="col-4">SKU</dt><dd class="col-8"><code>@Model.SKU</code></dd>
-    <dt class="col-4">Barcode</dt><dd class="col-8">@if(!string.IsNullOrEmpty(Model.Barcode)){<svg id="bcd"></svg><script>document.addEventListener('DOMContentLoaded',()=>JsBarcode("#bcd","@Model.Barcode",{width:2,height:50,displayValue:true}));</script>}</dd>
-    <dt class="col-4">Price</dt><dd class="col-8">$@Model.Price.ToString("N2")</dd>
-    <dt class="col-4">Category</dt><dd class="col-8">@Model.Category?.Name</dd>
-    <dt class="col-4">Tax Rate</dt><dd class="col-8">@(Model.TaxRate!=null?$"{Model.TaxRate.Name} ({Model.TaxRate.Rate:P0})":"None")</dd>
-    <dt class="col-4">Status</dt><dd class="col-8"><span class="badge @(Model.IsActive?"bg-success":"bg-danger")">@(Model.IsActive?"Active":"Inactive")</span></dd>
-    <dt class="col-4">Description</dt><dd class="col-8">@Model.Description</dd>
-</dl>
-<a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning"><i class="bi bi-pencil"></i> Edit</a>
-<a asp-action="Index" class="btn btn-secondary">Back</a></div></div>
-
-<hr class="my-4"/>
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h4><i class="bi bi-collection"></i> Variants</h4>
-    <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#addVariantForm">
-        <i class="bi bi-plus-lg"></i> Add Variant
-    </button>
+@using POS.Core.Entities
+@using POS.Core.Enums
+@{
+    ViewData["Title"] = Model.Name;
+    var allAttributes       = ViewBag.AllAttributes       as List<AttributeDefinition>   ?? new();
+    var variantAttrs        = ViewBag.VariantAttributes   as List<AttributeDefinition>   ?? new();
+    var branches            = ViewBag.Branches            as List<Branch>                ?? new();
+    var recentSales         = ViewBag.RecentSales         as List<SaleItem>              ?? new();
+    var stockMovements      = ViewBag.StockMovements      as List<StockMovement>         ?? new();
+    var purchaseOrderItems  = ViewBag.PurchaseOrderItems  as List<PurchaseOrderItem>     ?? new();
+    var existingAttrValues = Model.AttributeValues?.ToDictionary(av => av.AttributeDefinitionId, av => av)
+                             ?? new Dictionary<int, ProductAttributeValue>();
+    var activeTab = Context.Request.Query["tab"].ToString();
+    if (string.IsNullOrEmpty(activeTab)) activeTab = "overview";
+}
+@* Page Header *@
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a asp-action="Index">Products</a></li>
+                <li class="breadcrumb-item active">@Model.Name</li>
+            </ol>
+        </nav>
+        <h2 class="mb-0 mt-1">@Model.Name <small class="text-muted fs-6 fw-normal"><code>@Model.SKU</code></small></h2>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning"><i class="bi bi-pencil"></i> Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+    </div>
 </div>
-
-<div class="collapse mb-3" id="addVariantForm">
-    <div class="card shadow-sm" style="max-width:600px;">
-        <div class="card-body">
-            <form asp-controller="Product" asp-action="AddVariant" method="post">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="ProductId" value="@Model.Id" />
-                <div class="row g-2">
+@if (TempData["Success"] != null)
+{<div class="alert alert-success alert-dismissible fade show py-2"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>@TempData["Success"]</div>}
+@* Tab Navigation *@
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link @(activeTab=="overview"?"active":"")" href="?tab=overview"><i class="bi bi-info-circle"></i> Overview</a></li>
+    <li class="nav-item"><a class="nav-link @(activeTab=="inventory"?"active":"")" href="?tab=inventory"><i class="bi bi-boxes"></i> Inventory</a></li>
+    <li class="nav-item"><a class="nav-link @(activeTab=="variants"?"active":"")" href="?tab=variants"><i class="bi bi-collection"></i> Variants <span class="badge bg-secondary rounded-pill">@(Model.Variants?.Count ?? 0)</span></a></li>
+    <li class="nav-item"><a class="nav-link @(activeTab=="attributes"?"active":"")" href="?tab=attributes"><i class="bi bi-tags"></i> Attributes <span class="badge bg-secondary rounded-pill">@existingAttrValues.Count</span></a></li>
+    <li class="nav-item"><a class="nav-link @(activeTab=="movements"?"active":"")" href="?tab=movements"><i class="bi bi-arrow-left-right"></i> Movements <span class="badge bg-secondary rounded-pill">@stockMovements.Count</span></a></li>
+    <li class="nav-item"><a class="nav-link @(activeTab=="purchases"?"active":"")" href="?tab=purchases"><i class="bi bi-truck"></i> Purchase Orders <span class="badge bg-secondary rounded-pill">@purchaseOrderItems.Count</span></a></li>
+    <li class="nav-item"><a class="nav-link @(activeTab=="sales"?"active":"")" href="?tab=sales"><i class="bi bi-receipt"></i> Sales History</a></li>
+</ul>
+@* TAB 1 OVERVIEW *@
+@if (activeTab == "overview")
+{
+<div class="row g-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body text-center py-4">
+                @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                {<img src="@Model.ImageUrl" class="img-fluid rounded mb-2" style="max-height:180px;object-fit:cover"/>}
+                else
+                {<div class="bg-light rounded py-5 mb-2 text-muted"><i class="bi bi-image fs-1"></i><br><small>No Image</small></div>}
+                <span class="badge @(Model.IsActive?"bg-success":"bg-danger") fs-6">@(Model.IsActive?"Active":"Inactive")</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-9">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header fw-semibold bg-white"><i class="bi bi-info-circle me-1"></i>Product Information</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4"><label class="text-muted small fw-semibold d-block">NAME</label>@Model.Name</div>
+                    <div class="col-md-4"><label class="text-muted small fw-semibold d-block">SKU</label><code>@Model.SKU</code></div>
                     <div class="col-md-4">
-                        <label class="form-label">SKU</label>
-                        <input type="text" name="SKU" class="form-control form-control-sm" placeholder="e.g. PROD-S-RED" />
+                        <label class="text-muted small fw-semibold d-block">BARCODE</label>
+                        @if (!string.IsNullOrEmpty(Model.Barcode)){<code>@Model.Barcode</code><div class="mt-1"><svg id="bcd"></svg></div>}
+                        else{<span class="text-muted">n/a</span>}
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Size</label>
-                        <input type="text" name="Size" class="form-control form-control-sm" placeholder="S / M / L / XL" />
+                    <div class="col-md-3">
+                        <label class="text-muted small fw-semibold d-block">SELLING PRICE</label>
+                        <span class="fs-5 fw-bold text-success">$@Model.Price.ToString("N2")</span>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Color</label>
-                        <input type="text" name="Color" class="form-control form-control-sm" placeholder="Red / Blue …" />
+                    <div class="col-md-3">
+                        <label class="text-muted small fw-semibold d-block">COST PRICE</label>
+                        <span class="fs-5 fw-bold text-secondary">$@Model.CostPrice.ToString("N2")</span>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Price Override ($)</label>
-                        <input type="number" name="Price" class="form-control form-control-sm" step="0.01" min="0" value="@Model.Price" />
+                    <div class="col-md-3">
+                        <label class="text-muted small fw-semibold d-block">MARGIN</label>
+                        @{var margin = Model.CostPrice > 0 ? ((Model.Price - Model.CostPrice) / Model.Price * 100) : 0m;}
+                        <span class="fs-5 fw-bold @(margin >= 0 ? "text-success" : "text-danger")">@margin.ToString("N1")%</span>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Stock Qty</label>
-                        <input type="number" name="StockQty" class="form-control form-control-sm" min="0" value="0" />
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Barcode</label>
-                        <input type="text" name="Barcode" class="form-control form-control-sm" />
-                    </div>
+                    <div class="col-md-3"><label class="text-muted small fw-semibold d-block">CATEGORY</label>@Model.Category?.Name</div>
+                    <div class="col-md-4"><label class="text-muted small fw-semibold d-block">TAX RATE</label>@(Model.TaxRate != null ? $"{Model.TaxRate.Name} ({Model.TaxRate.Rate:P0})" : "None")</div>
+                    <div class="col-md-4"><label class="text-muted small fw-semibold d-block">TAX GROUP</label>@(Model.TaxGroup?.Name ?? "n/a")</div>
+                    <div class="col-md-4"><label class="text-muted small fw-semibold d-block">STATUS</label><span class="badge @(Model.IsActive?"bg-success":"bg-danger")">@(Model.IsActive?"Active":"Inactive")</span></div>
+                    @if (!string.IsNullOrEmpty(Model.Description))
+                    {<div class="col-12"><label class="text-muted small fw-semibold d-block">DESCRIPTION</label><div class="bg-light rounded p-2 small">@Model.Description</div></div>}
                 </div>
-                <button type="submit" class="btn btn-primary btn-sm mt-2"><i class="bi bi-save"></i> Save Variant</button>
-            </form>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-6 col-md-3"><div class="card border-0 bg-primary text-white text-center py-2"><div class="fs-4 fw-bold">@(Model.StockItems?.Sum(s => s.QtyOnHand) ?? 0)</div><small>Total Stock</small></div></div>
+            <div class="col-6 col-md-3"><div class="card border-0 bg-info text-white text-center py-2"><div class="fs-4 fw-bold">@(Model.Variants?.Count ?? 0)</div><small>Variants</small></div></div>
+            <div class="col-6 col-md-3"><div class="card border-0 bg-success text-white text-center py-2"><div class="fs-4 fw-bold">@recentSales.Count</div><small>Recent Sales</small></div></div>
+            <div class="col-6 col-md-3"><div class="card border-0 bg-warning text-dark text-center py-2"><div class="fs-4 fw-bold">@existingAttrValues.Count</div><small>Attributes</small></div></div>
         </div>
     </div>
 </div>
-
-@if (Model.Variants != null && Model.Variants.Any())
+@if (!string.IsNullOrEmpty(Model.Barcode))
+{<script>document.addEventListener('DOMContentLoaded',()=>JsBarcode("#bcd","@Model.Barcode",{width:2,height:50,displayValue:true}));</script>}
+}
+@* TAB 2 INVENTORY *@
+@if (activeTab == "inventory")
 {
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>SKU</th>
-                        <th>Size</th>
-                        <th>Color</th>
-                        <th>Weight</th>
-                        <th class="text-end">Price</th>
-                        <th class="text-end">Stock</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var v in Model.Variants)
+<div class="mb-3 d-flex align-items-center gap-2">
+    <span class="fw-semibold">Tracking Method:</span>
+    @if (Model.InventoryTracking == "Variant") {
+        <span class="badge bg-primary">By Variant</span>
+        <small class="text-muted">Stock is tracked per variant SKU via Variant.StockQty</small>
+    } else {
+        <span class="badge bg-secondary">By Product</span>
+        <small class="text-muted">Stock is tracked per branch via StockItem</small>
+    }
+    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-xs btn-outline-secondary btn-sm ms-auto py-0 px-2">
+        <i class="bi bi-pencil"></i> Change
+    </a>
+</div>
+
+@if (Model.InventoryTracking == "Variant")
+{
+    <div class="row g-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <span class="fw-semibold"><i class="bi bi-collection me-1"></i>Variant Stock by Branch</span>
+                    <small class="text-muted d-block">Each branch maintains its own stock for each variant/attribute combination</small>
+                </div>
+                <div class="card-body p-0">
+                    @if (Model.Variants == null || !Model.Variants.Any(v => v.IsActive))
                     {
-                        <tr>
-                            <td><code>@v.SKU</code></td>
-                            <td>@(v.Size ?? "—")</td>
-                            <td>@(v.Color ?? "—")</td>
-                            <td>@(v.Weight ?? "—")</td>
-                            <td class="text-end">$@v.Price.ToString("N2")</td>
-                            <td class="text-end">@v.StockQty</td>
-                            <td>
-                                <form asp-controller="Product" asp-action="DeleteVariant" asp-route-id="@v.Id" asp-route-productId="@Model.Id" method="post" class="d-inline" onsubmit="return confirm('Remove variant?')">
-                                    @Html.AntiForgeryToken()
-                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                                </form>
-                            </td>
-                        </tr>
+                        <div class="text-center text-muted py-4">No active variants. <a href="?tab=variants">Add variants</a>.</div>
                     }
-                </tbody>
-            </table>
+                    else
+                    {
+                        @foreach (var v in Model.Variants.Where(v => v.IsActive).OrderBy(v => v.Label))
+                        {
+                            var vLabel = !string.IsNullOrWhiteSpace(v.Label) ? v.Label : string.Join(" / ", v.AttributeValues.OrderBy(a=>a.AttributeDefinition?.Name).Select(a => a.Value));
+                            var hasBranchStock = v.BranchStockItems != null && v.BranchStockItems.Any();
+                            <div class="border-bottom py-3 px-4">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <span class="badge bg-light text-dark border me-2">@vLabel</span>
+                                        <code class="text-muted">@v.SKU</code>
+                                        <small class="text-muted ms-2">@(v.Barcode != null ? $"• {v.Barcode}" : "")</small>
+                                    </div>
+                                    <span class="fw-bold text-success">$@v.Price.ToString("N2")</span>
+                                </div>
+                                @if (hasBranchStock)
+                                {
+                                    <div class="row g-2 mt-2">
+                                        @foreach (var branchStock in v.BranchStockItems.OrderBy(bs => bs.Branch.Name))
+                                        {
+                                            var qtyBadge = branchStock.QtyOnHand == 0 ? "bg-danger" : (branchStock.QtyOnHand <= branchStock.ReorderLevel ? "bg-warning text-dark" : "bg-success");
+                                            <div class="col-md-6 col-lg-4">
+                                                <div class="border rounded p-2 bg-light">
+                                                    <div class="fw-semibold small">@branchStock.Branch.Name</div>
+                                                    <div class="d-flex justify-content-between align-items-center mt-1">
+                                                        <span class="fw-bold">@branchStock.QtyOnHand <span class="fw-normal text-muted">qty</span></span>
+                                                        <span class="badge @qtyBadge">@(branchStock.QtyOnHand == 0 ? "Out" : branchStock.QtyOnHand <= branchStock.ReorderLevel ? "Low" : "OK")</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <small class="text-muted">No branch stock records yet. Stock receives would populate this.</small>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
         </div>
     </div>
 }
 else
 {
-    <p class="text-muted">No variants defined for this product.</p>
+<div class="row g-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <span class="fw-semibold"><i class="bi bi-boxes me-1"></i>Stock Per Branch</span>
+                <small class="text-muted">Click Edit to update qty and reorder level</small>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr><th>Branch</th><th class="text-center">Qty on Hand</th><th class="text-center">Reorder Level</th><th class="text-center">Status</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var branch in branches)
+                        {
+                            var si = Model.StockItems?.FirstOrDefault(s => s.BranchId == branch.Id);
+                            var qty = si?.QtyOnHand ?? 0;
+                            var reorder = si?.ReorderLevel ?? 10;
+                            var sc = qty == 0 ? "bg-danger" : (qty <= reorder ? "bg-warning text-dark" : "bg-success");
+                            var st = qty == 0 ? "Out of Stock" : (qty <= reorder ? "Low Stock" : "In Stock");
+                            <tr>
+                                <td><strong>@branch.Name</strong></td>
+                                <td class="text-center fw-bold fs-5">@qty</td>
+                                <td class="text-center text-muted">@reorder</td>
+                                <td class="text-center"><span class="badge @sc">@st</span></td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#stockEdit_@branch.Id">
+                                        <i class="bi bi-pencil-square"></i> Edit
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="collapse" id="stockEdit_@branch.Id">
+                                <td colspan="5" class="bg-light py-2 px-4">
+                                    <form asp-action="SetStockItem" method="post" class="d-flex align-items-end gap-3 flex-wrap">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="productId" value="@Model.Id" />
+                                        <input type="hidden" name="branchId" value="@branch.Id" />
+                                        <div>
+                                            <label class="form-label small fw-semibold mb-1">Qty on Hand</label>
+                                            <input type="number" name="qtyOnHand" class="form-control form-control-sm" style="width:100px" value="@qty" min="0" />
+                                        </div>
+                                        <div>
+                                            <label class="form-label small fw-semibold mb-1">Reorder Level</label>
+                                            <input type="number" name="reorderLevel" class="form-control form-control-sm" style="width:100px" value="@reorder" min="0" />
+                                        </div>
+                                        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-save"></i> Save</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                        @if (!branches.Any())
+                        {<tr><td colspan="5" class="text-center text-muted py-4">No branches configured.</td></tr>}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @if (Model.Variants != null && Model.Variants.Any())
+    {
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold bg-white"><i class="bi bi-collection me-1"></i>Variant Stock (reference)</div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light"><tr><th>Label</th><th>SKU</th><th class="text-center">Qty</th><th class="text-center">Status</th></tr></thead>
+                    <tbody>
+                        @foreach (var v in Model.Variants.Where(v => v.IsActive))
+                        {
+                            var vsc = v.StockQty == 0 ? "bg-danger" : (v.StockQty <= 5 ? "bg-warning text-dark" : "bg-success");
+                            <tr>
+                                <td>@(v.Label ?? string.Join(" / ", v.AttributeValues.Select(a => a.Value)))</td>
+                                <td><code>@v.SKU</code></td>
+                                <td class="text-center fw-bold">@v.StockQty</td>
+                                <td class="text-center"><span class="badge @vsc">@(v.StockQty==0?"Out":"OK")</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    }
+</div>
+}
+}
+@* TAB 3 VARIANTS *@
+@if (activeTab == "variants")
+{
+<div class="card shadow-sm mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center bg-white">
+        <span class="fw-semibold"><i class="bi bi-collection me-1"></i>Variants</span>
+        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#addVariantForm">
+            <i class="bi bi-plus-lg"></i> Add Variant
+        </button>
+    </div>
+    <div class="collapse" id="addVariantForm">
+        <div class="card-body border-top">
+            <form asp-controller="Product" asp-action="AddVariant" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="ProductId" value="@Model.Id" />
+                <div class="row g-3">
+                    <div class="col-md-3"><label class="form-label fw-semibold">SKU</label><input type="text" name="SKU" class="form-control" placeholder="e.g. PROD-RED-L" /></div>
+                    <div class="col-md-3"><label class="form-label fw-semibold">Label <span class="text-muted fw-normal small">(auto if blank)</span></label><input type="text" name="Label" class="form-control" /></div>
+                    <div class="col-md-2"><label class="form-label fw-semibold">Price ($)</label><input type="number" name="Price" class="form-control" step="0.01" min="0" value="@Model.Price" /></div>
+                    <div class="col-md-2"><label class="form-label fw-semibold">Stock Qty</label><input type="number" name="StockQty" class="form-control" min="0" value="0" /></div>
+                    <div class="col-md-2"><label class="form-label fw-semibold">Barcode</label><input type="text" name="Barcode" class="form-control" /></div>
+                </div>
+                @if (variantAttrs.Any())
+                {<hr class="my-2"/><p class="text-muted small fw-semibold mb-2">VARIANT ATTRIBUTES</p>
+                <div class="row g-2">
+                    @foreach (var attr in variantAttrs)
+                    {<div class="col-md-3">
+                        <label class="form-label small fw-semibold">@attr.Name</label>
+                        @if (attr.DataType == "Select" && attr.Options.Any())
+                        {<select name="attrValues[@attr.Id]" class="form-select form-select-sm"><option value="">-- Select --</option>
+                            @foreach (var opt in attr.Options.OrderBy(o => o.SortOrder)){<option>@opt.Value</option>}
+                        </select>}
+                        else{<input type="text" name="attrValues[@attr.Id]" class="form-control form-control-sm" />}
+                    </div>}
+                </div>}
+                <div class="mt-3"><button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Save Variant</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+@if (Model.Variants != null && Model.Variants.Any())
+{<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light"><tr><th>SKU</th><th>Label / Attributes</th><th class="text-end">Price</th><th class="text-center">Stock</th><th class="text-center">Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var v in Model.Variants.OrderBy(v => v.Label))
+                {
+                    var attrLabel = string.IsNullOrWhiteSpace(v.Label)
+                        ? string.Join(" / ", v.AttributeValues.OrderBy(a => a.AttributeDefinition?.Name).Select(a => a.Value))
+                        : v.Label;
+                    <tr>
+                        <td><code>@v.SKU</code></td>
+                        <td>@if (!string.IsNullOrWhiteSpace(attrLabel)){<span class="badge bg-light text-dark border">@attrLabel</span>}else{<span class="text-muted">-</span>}</td>
+                        <td class="text-end fw-semibold">$@v.Price.ToString("N2")</td>
+                        <td class="text-center">
+                            @{var vsc2 = v.StockQty == 0 ? "bg-danger" : (v.StockQty <= 5 ? "bg-warning text-dark" : "bg-success");}
+                            <span class="badge @vsc2">@v.StockQty</span>
+                        </td>
+                        <td class="text-center"><span class="badge @(v.IsActive?"bg-success":"bg-danger")">@(v.IsActive?"Active":"Disabled")</span></td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary me-1" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#editVariant_@v.Id">
+                                <i class="bi bi-pencil-square"></i> Edit
+                            </button>
+                            <form asp-controller="Product" asp-action="DeleteVariant" asp-route-id="@v.Id" asp-route-productId="@Model.Id"
+                                  method="post" class="d-inline" onsubmit="return confirm('Remove variant?')">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr class="collapse bg-light" id="editVariant_@v.Id">
+                        <td colspan="6" class="py-2 px-4">
+                            <form asp-action="EditVariant" method="post" class="row g-2 align-items-end">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@v.Id" />
+                                <input type="hidden" name="productId" value="@Model.Id" />
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">Label</label>
+                                    <input type="text" name="label" class="form-control form-control-sm" value="@v.Label" placeholder="Auto" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">SKU</label>
+                                    <input type="text" name="sku" class="form-control form-control-sm" value="@v.SKU" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">Price ($)</label>
+                                    <input type="number" name="price" class="form-control form-control-sm" value="@v.Price" step="0.01" min="0" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">Stock Qty</label>
+                                    <input type="number" name="stockQty" class="form-control form-control-sm" value="@v.StockQty" min="0" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">Barcode</label>
+                                    <input type="text" name="barcode" class="form-control form-control-sm" value="@v.Barcode" />
+                                </div>
+                                <div class="col-md-1">
+                                    <label class="form-label small fw-semibold mb-1">Active</label>
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input" type="checkbox" name="isActive" value="true" @(v.IsActive?"checked":"") />
+                                    </div>
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-save"></i> Save</button>
+                                </div>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>}
+else{<div class="text-center text-muted py-5 card shadow-sm"><i class="bi bi-collection fs-1 d-block mb-2 opacity-25"></i>No variants yet.</div>}
+}
+@* TAB 4 ATTRIBUTES *@
+@if (activeTab == "attributes")
+{
+    var variantLevelAttrs     = allAttributes.Where(a => a.IsVariantLevel).ToList();
+    var descriptiveAttrs      = allAttributes.Where(a => !a.IsVariantLevel).ToList();
+    var variantAttrValues     = existingAttrValues.Where(kv => variantLevelAttrs.Any(a => a.Id == kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value);
+    var descriptiveAttrValues = existingAttrValues.Where(kv => descriptiveAttrs.Any(a => a.Id == kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value);
+    int totalCombinations = variantAttrValues.Any()
+        ? variantAttrValues.Values.Select(v =>
+              v.Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length)
+            .Aggregate(1, (a, b) => a * b)
+        : 0;
+@* ── SECTION 1: VARIANT ATTRIBUTES ──────────────────────────────────── *@
+<div class="card shadow-sm mb-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
+        <div>
+            <i class="bi bi-collection me-1 text-warning"></i>
+            <strong>Variant Attributes</strong>
+            <small class="text-muted ms-2">Select values → Generate combinations automatically</small>
+        </div>
+        @if (variantAttrValues.Any())
+        {<form asp-action="GenerateVariants" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="productId" value="@Model.Id" />
+            <button type="submit" class="btn btn-warning btn-sm"
+                    onclick="return confirm('Generate @totalCombinations variant(s)?')">
+                <i class="bi bi-magic me-1"></i> Generate @totalCombinations Variant(s)
+            </button>
+        </form>}
+    </div>
+    <div class="card-body">
+        @if (!variantLevelAttrs.Any())
+        {<div class="text-center text-muted py-3">
+            <i class="bi bi-info-circle me-1"></i>No variant-level attributes exist yet.
+            <a asp-controller="AttributeDefinition" asp-action="Create" class="ms-1">Create one</a>
+            with <strong>Used for Variants = Yes</strong>.
+        </div>}
+        else
+        {<div class="row g-3">
+            @foreach (var attr in variantLevelAttrs)
+            {
+                existingAttrValues.TryGetValue(attr.Id, out var evVar);
+                var selVals = evVar != null
+                    ? evVar.Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet()
+                    : new HashSet<string>();
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 @(selVals.Any()?"border-warning":"")">
+                        <div class="card-header d-flex justify-content-between align-items-center py-2">
+                            <strong class="small">@attr.Name 
+                                <span class="badge bg-secondary ms-2">@attr.DataType</span>
+                            </strong>
+                            @if (selVals.Any()){<span class="badge bg-warning text-dark">@selVals.Count selected</span>}
+                        </div>
+                        <div class="card-body py-2">
+                            <form asp-action="SetProductAttribute" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="productId" value="@Model.Id" />
+                                <input type="hidden" name="attributeDefinitionId" value="@attr.Id" />
+                                
+                                @if (attr.DataType == "Select" && attr.Options.Any())
+                                {
+                                    <!-- ← IMPROVED: Show SELECT type as checkbox grid -->
+                                    <div class="d-flex flex-wrap gap-2 mb-2" id="checks_@attr.Id">
+                                        @foreach (var opt in attr.Options.OrderBy(o => o.SortOrder))
+                                        {
+                                            <div class="form-check">
+                                                <input class="form-check-input variantCheck_@attr.Id" type="checkbox"
+                                                       value="@opt.Value" id="chk_@(attr.Id)_@opt.Id"
+                                                       @(selVals.Contains(opt.Value) ? "checked" : "")
+                                                       onchange="syncHidden(@attr.Id)" />
+                                                <label class="form-check-label small" for="chk_@(attr.Id)_@opt.Id">
+                                                    <strong>@opt.Value</strong>
+                                                </label>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <!-- ← For TEXT/NUMBER/BOOLEAN types: freeform input with comma-separation hint -->
+                                    <div class="input-group input-group-sm mb-2">
+                                        <input type="text" name="value" class="form-control" 
+                                               value="@(evVar?.Value ?? "")" 
+                                               placeholder="@(attr.DataType == "Boolean" ? "true or false" : "e.g. 4,6,8 (comma-separated)")" />
+                                    </div>
+                                }
+                                
+                                <!-- Hidden field for SELECT type to store comma-separated values -->
+                                @if (attr.DataType == "Select" && attr.Options.Any())
+                                {
+                                    <input type="hidden" name="value" id="hidden_@attr.Id" value="@(evVar?.Value ?? "")" />
+                                }
+                                
+                                <button type="submit" class="btn btn-sm btn-outline-warning w-100">
+                                    <i class="bi bi-save me-1"></i>Save Values
+                                </button>
+                            </form>
+                            
+                            @if (evVar != null)
+                            {
+                                <form asp-action="DeleteProductAttribute" method="post" class="mt-1"
+                                      onsubmit="return confirm('Remove?')">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@evVar.Id" />
+                                    <input type="hidden" name="productId" value="@Model.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger w-100">
+                                        <i class="bi bi-x-circle me-1"></i>Remove
+                                    </button>
+                                </form>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+        @if (variantAttrValues.Any())
+        {<div class="alert alert-info mt-3 py-2 mb-0">
+            <i class="bi bi-lightbulb me-1"></i>
+            <strong>@totalCombinations combination(s)</strong> will be generated. Click <strong>Generate Variants</strong>.
+            Already-existing variants will be skipped.
+        </div>}
+        }
+    </div>
+</div>
+@* ── SECTION 2: DESCRIPTIVE ATTRIBUTES ──────────────────────────────── *@
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold bg-white"><i class="bi bi-tags me-1"></i>Product Attributes <small class="fw-normal text-muted">(descriptive — brand, material, origin…)</small></div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light"><tr><th>Attribute</th><th>Value</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var attr in descriptiveAttrs)
+                        {
+                            descriptiveAttrValues.TryGetValue(attr.Id, out var ev);
+                            if (ev == null) continue;
+                            <tr>
+                                <td class="fw-semibold">@attr.Name</td>
+                                <td>
+                                    <form asp-action="SetProductAttribute" method="post" class="d-flex gap-1 align-items-center">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="productId" value="@Model.Id" />
+                                        <input type="hidden" name="attributeDefinitionId" value="@attr.Id" />
+                                        @if (attr.DataType == "Select" && attr.Options.Any())
+                                        {<select name="value" class="form-select form-select-sm" style="width:180px">
+                                            <option value="">-- Select --</option>
+                                            @foreach (var opt in attr.Options.OrderBy(o => o.SortOrder))
+                                            {<option value="@opt.Value" selected="@(ev.Value==opt.Value?"selected":null)">@opt.Value</option>}
+                                        </select>}
+                                        else if (attr.DataType == "Boolean")
+                                        {<select name="value" class="form-select form-select-sm" style="width:100px">
+                                            <option value="false" selected="@(ev.Value=="false"?"selected":null)">No</option>
+                                            <option value="true"  selected="@(ev.Value=="true"?"selected":null)">Yes</option>
+                                        </select>}
+                                        else{<input type="text" name="value" class="form-control form-control-sm" style="width:180px" value="@ev.Value" />}
+                                        <button type="submit" class="btn btn-sm btn-outline-success" title="Save"><i class="bi bi-check-lg"></i></button>
+                                    </form>
+                                </td>
+                                <td>
+                                    <form asp-action="DeleteProductAttribute" method="post" class="d-inline"
+                                          onsubmit="return confirm('Remove?')">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@ev.Id" />
+                                        <input type="hidden" name="productId" value="@Model.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                        @if (!descriptiveAttrValues.Any())
+                        {<tr><td colspan="3" class="text-center text-muted py-4">No descriptive attributes set yet.</td></tr>}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-secondary">
+            <div class="card-header fw-semibold bg-white"><i class="bi bi-plus-circle me-1"></i>Attach Descriptive Attribute</div>
+            <div class="card-body" style="max-height:420px;overflow-y:auto">
+                @{var notApplied = descriptiveAttrs.Where(a => !descriptiveAttrValues.ContainsKey(a.Id)).ToList();}
+                @if (!notApplied.Any()){<p class="text-muted small text-center">All descriptive attributes attached.</p>}
+                @foreach (var attr in notApplied)
+                {<div class="border rounded p-2 mb-2 bg-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong class="small">@attr.Name</strong>
+                        <button class="btn btn-outline-secondary py-0 px-2 small btn-sm"
+                                onclick="document.getElementById('attrForm_@attr.Id').classList.toggle('d-none')">+ Add</button>
+                    </div>
+                    <div id="attrForm_@attr.Id" class="mt-2 d-none">
+                        <form asp-action="SetProductAttribute" method="post" class="d-flex gap-1">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="productId" value="@Model.Id" />
+                            <input type="hidden" name="attributeDefinitionId" value="@attr.Id" />
+                            @if (attr.DataType == "Select" && attr.Options.Any())
+                            {<select name="value" class="form-select form-select-sm flex-grow-1">
+                                <option value="">-- Select --</option>
+                                @foreach (var opt in attr.Options.OrderBy(o => o.SortOrder)){<option>@opt.Value</option>}
+                            </select>}
+                            else if (attr.DataType == "Boolean")
+                            {<select name="value" class="form-select form-select-sm flex-grow-1">
+                                <option value="false">No</option><option value="true">Yes</option>
+                            </select>}
+                            else{<input type="text" name="value" class="form-control form-control-sm flex-grow-1" placeholder="Enter value" />}
+                            <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i></button>
+                        </form>
+                    </div>
+                </div>}
+                <div class="mt-3 border-top pt-3">
+                    <a asp-controller="AttributeDefinition" asp-action="Index" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="bi bi-gear me-1"></i>Manage Attribute Definitions
+                    </a>
+                    <a asp-controller="AttributeDefinition" asp-action="Create" class="btn btn-outline-primary btn-sm w-100 mt-1">
+                        <i class="bi bi-plus-lg me-1"></i>Create New Attribute
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+function syncHidden(attrId){
+    const checks=[...document.querySelectorAll('.variantCheck_'+attrId+':checked')].map(c=>c.value);
+    document.getElementById('hidden_'+attrId).value=checks.join(',');
+}
+function addCustomVal(attrId){
+    const inp=document.getElementById('newVal_'+attrId);
+    const val=inp.value.trim();if(!val)return;
+    const container=document.getElementById('checks_'+attrId);
+    const uid='custom_'+attrId+'_'+Date.now();
+    const div=document.createElement('div');div.className='form-check';
+    div.innerHTML=`<input class="form-check-input variantCheck_${attrId}" type="checkbox"
+        value="${val.replace(/"/g,'&quot;')}" id="${uid}" checked onchange="syncHidden(${attrId})">
+        <label class="form-check-label small" for="${uid}">${val}</label>`;
+    container.appendChild(div);inp.value='';syncHidden(attrId);
+}
+</script>
+}
+@* TAB 5 STOCK MOVEMENTS *@
+@if (activeTab == "movements")
+{
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center bg-white">
+        <span class="fw-semibold"><i class="bi bi-arrow-left-right me-1"></i>Stock Movements (last 100)</span>
+        <small class="text-muted">All inbound and outbound movements for this product</small>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0 small">
+            <thead class="table-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>From Branch</th>
+                    <th>To Branch</th>
+                    <th class="text-center">Qty</th>
+                    <th>Reference</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var sm in stockMovements)
+                {
+                    var typeBadge = sm.Type switch {
+                        StockMovementType.Sale       => "bg-danger",
+                        StockMovementType.Restock    => "bg-success",
+                        StockMovementType.Transfer   => "bg-info text-dark",
+                        StockMovementType.Adjustment => "bg-warning text-dark",
+                        _                            => "bg-secondary"
+                    };
+                    <tr>
+                        <td class="text-nowrap">@sm.CreatedAt.ToString("dd MMM yyyy HH:mm")</td>
+                        <td><span class="badge @typeBadge">@sm.Type</span></td>
+                        <td>@(sm.FromBranch?.Name ?? "—")</td>
+                        <td>@(sm.ToBranch?.Name ?? "—")</td>
+                        <td class="text-center fw-bold">@sm.Qty</td>
+                        <td><code>@(sm.Reference ?? "-")</code></td>
+                        <td class="text-muted">@(sm.Notes ?? "-")</td>
+                    </tr>
+                }
+                @if (!stockMovements.Any())
+                {<tr><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-arrow-left-right fs-1 d-block mb-2 opacity-25"></i>No stock movements recorded.</td></tr>}
+            </tbody>
+        </table>
+    </div>
+    @if (stockMovements.Any())
+    {<div class="card-footer bg-white text-end small text-muted">
+        Total in: <strong>@stockMovements.Where(m => m.Type == StockMovementType.Restock || m.Type == StockMovementType.Adjustment).Sum(m => m.Qty)</strong> &nbsp;|&nbsp;
+        Total out (sales): <strong>@stockMovements.Where(m => m.Type == StockMovementType.Sale).Sum(m => m.Qty)</strong>
+    </div>}
+</div>
+}
+@* TAB 6 PURCHASE ORDERS *@
+@if (activeTab == "purchases")
+{
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center bg-white">
+        <span class="fw-semibold"><i class="bi bi-truck me-1"></i>Purchase Order Lines</span>
+        <small class="text-muted">All PO lines that include this product — prices here do <strong>not</strong> affect product selling or cost price</small>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0 small">
+            <thead class="table-light">
+                <tr>
+                    <th>PO #</th>
+                    <th>Date</th>
+                    <th>Supplier</th>
+                    <th>Branch</th>
+                    <th>Status</th>
+                    <th class="text-center">Ordered Qty</th>
+                    <th class="text-center">Received Qty</th>
+                    <th class="text-end">Unit Cost</th>
+                    <th class="text-end">Line Total</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var poi in purchaseOrderItems)
+                {
+                    var po = poi.PurchaseOrder;
+                    var statusBadge = po?.Status switch {
+                        PurchaseOrderStatus.Draft             => "bg-secondary",
+                        PurchaseOrderStatus.Ordered           => "bg-primary",
+                        PurchaseOrderStatus.PartiallyReceived => "bg-warning text-dark",
+                        PurchaseOrderStatus.Received          => "bg-success",
+                        PurchaseOrderStatus.Cancelled         => "bg-danger",
+                        _                                     => "bg-secondary"
+                    };
+                    <tr>
+                        <td><code>PO-@po?.Id</code></td>
+                        <td class="text-nowrap">@po?.CreatedAt.ToString("dd MMM yyyy")</td>
+                        <td>@(po?.Supplier?.Name ?? "-")</td>
+                        <td>@(po?.Branch?.Name ?? "-")</td>
+                        <td><span class="badge @statusBadge">@po?.Status</span></td>
+                        <td class="text-center">@poi.Qty</td>
+                        <td class="text-center">
+                            @if (poi.ReceivedQty >= poi.Qty)
+                            {<span class="text-success fw-semibold">@poi.ReceivedQty</span>}
+                            else if (poi.ReceivedQty > 0)
+                            {<span class="text-warning fw-semibold">@poi.ReceivedQty / @poi.Qty</span>}
+                            else
+                            {<span class="text-muted">0</span>}
+                        </td>
+                        <td class="text-end">$@poi.UnitCost.ToString("N2")</td>
+                        <td class="text-end fw-semibold">$@poi.LineTotal.ToString("N2")</td>
+                        <td>
+                            <a asp-controller="Inventory" asp-action="PurchaseOrderDetails" asp-route-id="@po?.Id"
+                               class="btn btn-sm btn-outline-info"><i class="bi bi-eye"></i></a>
+                        </td>
+                    </tr>
+                }
+                @if (!purchaseOrderItems.Any())
+                {<tr><td colspan="10" class="text-center text-muted py-5"><i class="bi bi-truck fs-1 d-block mb-2 opacity-25"></i>No purchase orders for this product.</td></tr>}
+            </tbody>
+        </table>
+    </div>
+    @if (purchaseOrderItems.Any())
+    {<div class="card-footer bg-white text-end small text-muted">
+        Total ordered: <strong>@purchaseOrderItems.Sum(p => p.Qty)</strong> units &nbsp;|&nbsp;
+        Total received: <strong>@purchaseOrderItems.Sum(p => p.ReceivedQty)</strong> units &nbsp;|&nbsp;
+        Total cost: <strong>$@purchaseOrderItems.Sum(p => p.LineTotal).ToString("N2")</strong>
+    </div>}
+</div>
+}
+@* TAB 7 SALES HISTORY *@
+@if (activeTab == "sales")
+{
+<div class="card shadow-sm">
+    <div class="card-header fw-semibold bg-white"><i class="bi bi-receipt me-1"></i>Recent Sales (last 20)</div>
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr><th>Sale #</th><th>Date</th><th class="text-center">Qty</th><th class="text-end">Unit Price</th><th class="text-end">Discount</th><th class="text-end">Line Total</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var si in recentSales)
+                {<tr>
+                    <td><code>@si.Sale?.SaleNumber</code></td>
+                    <td>@si.Sale?.CreatedAt.ToString("dd MMM yyyy HH:mm")</td>
+                    <td class="text-center">@si.Qty</td>
+                    <td class="text-end">$@si.UnitPrice.ToString("N2")</td>
+                    <td class="text-end">@(si.Discount>0?"$"+si.Discount.ToString("N2"):"-")</td>
+                    <td class="text-end fw-semibold">$@si.LineTotal.ToString("N2")</td>
+                    <td><a asp-controller="Sale" asp-action="Details" asp-route-id="@si.SaleId" class="btn btn-sm btn-outline-info"><i class="bi bi-eye"></i></a></td>
+                </tr>}
+                @if (!recentSales.Any())
+                {<tr><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-receipt fs-1 d-block mb-2 opacity-25"></i>No sales recorded yet.</td></tr>}
+            </tbody>
+        </table>
+    </div>
+    @if (recentSales.Any())
+    {<div class="card-footer bg-white text-end small text-muted">
+        Units sold: <strong>@recentSales.Sum(s => s.Qty)</strong> | Revenue: <strong>$@recentSales.Sum(s => s.LineTotal).ToString("N2")</strong>
+    </div>}
+</div>
 }

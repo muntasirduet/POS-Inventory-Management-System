@@ -1,0 +1,27 @@
+@model POS.Core.Entities.TaxComponent
+@{ ViewData["Title"] = "New Tax Component"; }
+<h2>@ViewData["Title"]</h2>
+<div class="row"><div class="col-md-6">
+<div class="card"><div class="card-body">
+<form asp-action="CreateComponent" method="post">
+@Html.AntiForgeryToken()
+<div class="mb-3"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" required autofocus /></div>
+<div class="mb-3"><label asp-for="Code" class="form-label">Code <small class="text-muted">(optional, e.g. VAT)</small></label><input asp-for="Code" class="form-control" /></div>
+<div class="mb-3">
+    <label asp-for="Rate" class="form-label">Rate (%)</label>
+    <input asp-for="Rate" type="number" step="0.01" class="form-control" required />
+</div>
+<div class="mb-3 form-check">
+    <input asp-for="IsInclusive" class="form-check-input" type="checkbox" />
+    <label asp-for="IsInclusive" class="form-check-label">Price-inclusive tax (tax is embedded in the sale price)</label>
+</div>
+<div class="mb-3 form-check">
+    <input asp-for="IsCompound" class="form-check-input" type="checkbox" />
+    <label asp-for="IsCompound" class="form-check-label">Compound tax (calculated on top of other taxes)</label>
+</div>
+<div class="mb-3"><label asp-for="SortOrder" class="form-label">Sort Order</label><input asp-for="SortOrder" type="number" class="form-control" style="width:100px" /></div>
+<button type="submit" class="btn btn-primary">Save</button>
+<a asp-action="Components" class="btn btn-secondary ms-2">Cancel</a>
+</form>
+</div></div>
+</div></div>

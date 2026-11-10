@@ -1,0 +1,144 @@
+@model POS.Core.Entities.LoyaltyAccount?
+@{
+    var customer = ViewBag.Customer as POS.Core.Entities.Customer;
+    ViewData["Title"] = $"Loyalty — {customer?.Name}";
+    var tier = Model?.Tier ?? "Standard";
+    var tierClass = tier switch { "Platinum" => "bg-dark", "Gold" => "bg-warning text-dark", "Silver" => "bg-secondary", _ => "bg-light text-dark border" };
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-star-fill text-warning"></i> Loyalty Account — @customer?.Name</h4>
+    <a asp-controller="Customer" asp-action="Details" asp-route-id="@customer?.Id" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Customer Profile
+    </a>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>@TempData["Success"]</div>
+}
+
+@if (Model == null)
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> No loyalty account found for this customer.
+        <form asp-action="Adjust" method="post" class="d-inline ms-3">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="customerId" value="@customer?.Id" />
+            <input type="hidden" name="points" value="0" />
+            <input type="hidden" name="reason" value="Account created" />
+            <button type="submit" class="btn btn-sm btn-primary">Create Account</button>
+        </form>
+    </div>
+}
+else
+{
+    <!-- Summary bar -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="display-5 fw-bold text-primary">@Model.Points.ToString("N0")</div>
+                    <div class="text-muted small">Points Available</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="display-5 fw-bold text-success">$@Model.TotalSpend.ToString("0.00")</div>
+                    <div class="text-muted small">Total Spend</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="h4 fw-bold"><span class="badge @tierClass fs-6">@tier</span></div>
+                    <div class="text-muted small">Membership Tier</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="display-5 fw-bold text-info">@Model.Transactions.Count</div>
+                    <div class="text-muted small">Total Transactions</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual adjustment form (settings.manage only) -->
+    @if (User.HasClaim("permission", "settings.manage"))
+    {
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-sliders"></i> Manual Adjustment</div>
+            <div class="card-body">
+                <form asp-action="Adjust" method="post" class="row g-3">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="customerId" value="@customer?.Id" />
+                    <div class="col-md-3">
+                        <label class="form-label">Points (negative to deduct)</label>
+                        <input type="number" name="points" class="form-control" required placeholder="e.g. 100 or -50" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Reason</label>
+                        <input type="text" name="reason" class="form-control" placeholder="Reason for adjustment" maxlength="200" />
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Apply Adjustment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+
+    <!-- Transaction history -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-clock-history"></i> Transaction History</span>
+            <small class="text-muted">@Model.Transactions.Count record(s)</small>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Points</th>
+                        <th>Balance After</th>
+                        <th>Reward / Reference</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var tx in Model.Transactions)
+                    {
+                        var badge = tx.Type switch
+                        {
+                            "Earn" => "bg-success",
+                            "Redeem" => "bg-danger",
+                            "Adjustment" => "bg-info",
+                            _ => "bg-secondary"
+                        };
+                        <tr>
+                            <td class="text-nowrap">@tx.CreatedAt.ToString("MMM d, yyyy HH:mm")</td>
+                            <td><span class="badge @badge">@tx.Type</span></td>
+                            <td class="fw-bold @(tx.Points >= 0 ? "text-success" : "text-danger")">
+                                @(tx.Points >= 0 ? "+" : "")@tx.Points
+                            </td>
+                            <td>@tx.BalanceAfter.ToString("N0")</td>
+                            <td>@(tx.Reward != null ? tx.Reward.Name : (tx.SaleId.HasValue ? $"Sale #{tx.SaleId}" : "—"))</td>
+                            <td class="text-muted small">@(tx.Notes ?? "—")</td>
+                        </tr>
+                    }
+                    @if (!Model.Transactions.Any())
+                    {
+                        <tr><td colspan="6" class="text-center text-muted py-4">No transactions yet.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

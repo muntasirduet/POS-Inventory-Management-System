@@ -1,19 +1,343 @@
 @model POS.Core.Entities.Product
 @{ ViewData["Title"] = "Edit Product"; }
-<h2><i class="bi bi-pencil"></i> Edit Product</h2>
-<div class="card"><div class="card-body">
-<form asp-action="Edit" method="post" enctype="multipart/form-data">@Html.AntiForgeryToken()
-<input asp-for="Id" type="hidden"/><input asp-for="ImageUrl" type="hidden"/>
-<div class="row g-3">
-    <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" required/></div>
-    <div class="col-md-3"><label asp-for="SKU" class="form-label"></label><input asp-for="SKU" class="form-control" required/></div>
-    <div class="col-md-3"><label asp-for="Barcode" class="form-label"></label><input asp-for="Barcode" class="form-control"/></div>
-    <div class="col-md-4"><label asp-for="Price" class="form-label"></label><div class="input-group"><span class="input-group-text">$</span><input asp-for="Price" class="form-control" type="number" step="0.01" min="0" required/></div></div>
-    <div class="col-md-4"><label class="form-label">Category</label><select asp-for="CategoryId" asp-items="ViewBag.Categories" class="form-select"></select></div>
-    <div class="col-md-4"><label class="form-label">Tax Rate</label><select asp-for="TaxRateId" asp-items="ViewBag.TaxRates" class="form-select"><option value="">-- None --</option></select></div>
-    <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="3"></textarea></div>
-    <div class="col-md-6"><label class="form-label">Image</label>@if(!string.IsNullOrEmpty(Model.ImageUrl)){<div class="mb-1"><img src="@Model.ImageUrl" class="img-thumbnail" style="max-height:80px"/></div>}<input type="file" name="imageFile" class="form-control" accept="image/*"/></div>
-    <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input asp-for="IsActive" class="form-check-input" type="checkbox"/><label asp-for="IsActive" class="form-check-label">Active</label></div></div>
+<style>
+    .attribute-badge { display: inline-block; padding: 6px 12px; background: #e9ecef; border-radius: 4px; margin: 4px 4px 4px 0; font-size: 0.9rem; }
+    .attribute-badge .btn-close { margin-left: 6px; cursor: pointer; }
+    .attr-section { background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-pencil"></i> Edit Product</h2>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back</a>
 </div>
-<div class="mt-3"><button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button><a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a></div>
-</form></div></div>
+
+<div class="card">
+    <div class="card-body">
+        <form asp-action="Edit" method="post" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <input asp-for="Id" type="hidden"/>
+            <input asp-for="ImageUrl" type="hidden"/>
+            
+            <!-- Basic Info -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label asp-for="Name" class="form-label">Product Name *</label>
+                    <input asp-for="Name" class="form-control" required/>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="SKU" class="form-label">SKU *</label>
+                    <input asp-for="SKU" class="form-control" required/>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="Barcode" class="form-label">Barcode</label>
+                    <input asp-for="Barcode" class="form-control"/>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Price" class="form-label">Price *</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input asp-for="Price" class="form-control" type="number" step="0.01" min="0" required/>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Category *</label>
+                    <select asp-for="CategoryId" asp-items="ViewBag.Categories" class="form-select" onchange="loadCategoryAttributes()"></select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Tax Rate</label>
+                    <select asp-for="TaxRateId" asp-items="ViewBag.TaxRates" class="form-select">
+                        <option value="">-- None --</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label asp-for="Description" class="form-label">Description</label>
+                    <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Product Image</label>
+                    @if(!string.IsNullOrEmpty(Model.ImageUrl))
+                    {
+                        <div class="mb-2">
+                            <img src="@Model.ImageUrl" class="img-thumbnail" style="max-height:100px"/>
+                        </div>
+                    }
+                    <input type="file" name="imageFile" class="form-control" accept="image/*"/>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input asp-for="IsActive" class="form-check-input" type="checkbox"/>
+                        <label asp-for="IsActive" class="form-check-label">Active</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Inventory Tracking</label>
+                    <select asp-for="InventoryTracking" class="form-select">
+                        <option value="Product">By Product (branch stock)</option>
+                        <option value="Variant">By Variant (per SKU stock)</option>
+                    </select>
+                </div>
+            </div>
+
+            <hr/>
+
+            <!-- Product Attributes Section -->
+            <div class="attr-section">
+                <h5 class="mb-3"><i class="bi bi-sliders"></i> Product Attributes</h5>
+                <div id="productAttributesList"></div>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="showAddAttributeModal()">
+                    <i class="bi bi-plus-circle"></i> Add Attribute
+                </button>
+            </div>
+
+            <!-- Category Template Attributes (Read-only) -->
+            <div class="attr-section" id="categoryAttrSection" style="display:none;">
+                <h5 class="mb-3"><i class="bi bi-diagram-3"></i> Category Suggested Attributes</h5>
+                <p class="small text-muted mb-2">These attributes are suggested for this category. Click to add to your product.</p>
+                <div id="categoryAttributesList"></div>
+            </div>
+
+            <!-- Form Buttons -->
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save Product</button>
+                <a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Attribute Modal -->
+<div class="modal fade" id="addAttributeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Product Attribute</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Attribute *</label>
+                    <select id="attributeSelect" class="form-select" onchange="onAttributeSelect()">
+                        <option value="">-- Select Attribute --</option>
+                    </select>
+                </div>
+                <div id="attributeValueContainer" style="display:none;">
+                    <label class="form-label">Value *</label>
+                    <div id="attributeValueInput"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="addProductAttribute()">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const productId = @Model.Id;
+const categoryId = @Model.CategoryId;
+let allAttributes = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.AllAttributes ?? new List<object>()));
+let categoryAttributes = [];  // ← NEW: Track category-specific attributes
+let productAttributes = {};
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadProductAttributes();
+    loadCategoryAttributes();
+});
+
+async function loadProductAttributes() {
+    try {
+        const response = await fetch(`/Product/GetProductAttributes?productId=${productId}`);
+        const data = await response.json();
+        productAttributes = data.reduce((acc, attr) => {
+            acc[attr.attributeDefinitionId] = attr.value;
+            return acc;
+        }, {});
+        renderProductAttributes();
+    } catch (error) {
+        console.error('Failed to load attributes:', error);
+    }
+}
+
+function renderProductAttributes() {
+    const container = document.getElementById('productAttributesList');
+    if (Object.keys(productAttributes).length === 0) {
+        container.innerHTML = '<p class="text-muted small">No attributes added yet</p>';
+        return;
+    }
+    
+    let html = '';
+    for (const [attrId, value] of Object.entries(productAttributes)) {
+        const attr = allAttributes.find(a => a.id == attrId);
+        if (!attr) continue;
+        html += `
+            <div class="attribute-badge">
+                <strong>${attr.name}:</strong> ${value}
+                <button type="button" class="btn-close btn-sm" onclick="removeProductAttribute(${attrId})" style="margin-left: 8px; transform: scale(0.8);"></button>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+function showAddAttributeModal() {
+    const select = document.getElementById('attributeSelect');
+    select.innerHTML = '<option value="">-- Select Attribute --</option>';
+    
+    // ← FIXED: Only show category-specific attributes (OR attributes not yet added to this product)
+    categoryAttributes.forEach(attr => {
+        if (!productAttributes[attr.id]) {
+            select.innerHTML += `<option value="${attr.id}">${attr.name}</option>`;
+        }
+    });
+    
+    // Fall back to all attributes if no category attributes defined
+    if (categoryAttributes.length === 0) {
+        allAttributes.forEach(attr => {
+            if (!productAttributes[attr.id]) {
+                select.innerHTML += `<option value="${attr.id}">${attr.name}</option>`;
+            }
+        });
+    }
+    
+    new bootstrap.Modal(document.getElementById('addAttributeModal')).show();
+}
+
+function onAttributeSelect() {
+    const select = document.getElementById('attributeSelect');
+    const attrId = parseInt(select.value);
+    const attr = allAttributes.find(a => a.id === attrId);
+    const container = document.getElementById('attributeValueContainer');
+    const input = document.getElementById('attributeValueInput');
+    
+    if (!attr || attrId === 0) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    if (attr.dataType === 'Select' && attr.options && attr.options.length > 0) {
+        input.innerHTML = `
+            <select id="attrValue" class="form-select">
+                <option value="">-- Select --</option>
+                ${attr.options.map(opt => `<option value="${opt.value}">${opt.value}</option>`).join('')}
+            </select>
+        `;
+    } else {
+        const inputType = attr.dataType === 'Number' ? 'number' : attr.dataType === 'Boolean' ? 'checkbox' : 'text';
+        if (inputType === 'checkbox') {
+            input.innerHTML = `<input id="attrValue" type="checkbox" class="form-check-input">`;
+        } else {
+            input.innerHTML = `<input id="attrValue" type="${inputType}" class="form-control">`;
+        }
+    }
+    container.style.display = 'block';
+}
+
+async function addProductAttribute() {
+    const attrId = parseInt(document.getElementById('attributeSelect').value);
+    const valueInput = document.getElementById('attrValue');
+    const value = valueInput.type === 'checkbox' ? (valueInput.checked ? 'true' : 'false') : valueInput.value;
+    
+    if (!attrId || !value) {
+        alert('Please select an attribute and enter a value');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/Product/SetProductAttributeJson', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('input[name="__RequestVerificationToken"]').value
+            },
+            body: JSON.stringify({ productId, attributeDefinitionId: attrId, value })
+        });
+        
+        if (response.ok) {
+            productAttributes[attrId] = value;
+            renderProductAttributes();
+            bootstrap.Modal.getInstance(document.getElementById('addAttributeModal')).hide();
+        } else {
+            alert('Failed to add attribute');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error adding attribute');
+    }
+}
+
+async function removeProductAttribute(attrId) {
+    if (!confirm('Remove this attribute?')) return;
+    
+    try {
+        const response = await fetch(`/Product/RemoveProductAttribute?productId=${productId}&attributeDefinitionId=${attrId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('input[name="__RequestVerificationToken"]').value
+            }
+        });
+        
+        if (response.ok) {
+            delete productAttributes[attrId];
+            renderProductAttributes();
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+async function loadCategoryAttributes() {
+    const catId = parseInt(document.getElementById('CategoryId').value);
+    if (!catId) {
+        document.getElementById('categoryAttrSection').style.display = 'none';
+        categoryAttributes = [];  // ← FIXED: Clear category attributes if no category selected
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/Category/GetCategoryAttributes?categoryId=${catId}`);
+        const attrs = await response.json();
+        categoryAttributes = attrs;  // ← FIXED: Store category-specific attributes
+        const container = document.getElementById('categoryAttributesList');
+        
+        if (attrs.length === 0) {
+            document.getElementById('categoryAttrSection').style.display = 'none';
+            return;
+        }
+        
+        let html = '';
+        attrs.forEach(attr => {
+            if (!productAttributes[attr.id]) {
+                html += `
+                    <button type="button" class="btn btn-sm btn-outline-success me-2 mb-2" 
+                            onclick="addAttributeFromTemplate(${attr.id}, '${attr.name}')">
+                        <i class="bi bi-check-lg"></i> ${attr.name}
+                    </button>
+                `;
+            }
+        });
+        
+        container.innerHTML = html;
+        document.getElementById('categoryAttrSection').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading category attributes:', error);
+    }
+}
+
+function addAttributeFromTemplate(attrId, attrName) {
+    const attr = allAttributes.find(a => a.id === attrId);
+    if (!attr) return;
+    
+    if (attr.dataType === 'Select' && attr.options && attr.options.length > 0) {
+        alert(`Please enter ${attrName} value manually in "Add Attribute" dialog`);
+        return;
+    }
+    
+    productAttributes[attrId] = '';
+    renderProductAttributes();
+    loadCategoryAttributes();
+}
+</script>
+}
+

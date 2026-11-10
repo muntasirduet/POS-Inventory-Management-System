@@ -1,0 +1,57 @@
+@model List<POS.Core.Entities.Customer>
+@{ ViewData["Title"] = "Customers"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-people-fill"></i> Customers</h4>
+    <a asp-action="Create" class="btn btn-primary"><i class="bi bi-person-plus"></i> New Customer</a>
+</div>
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert"></button>@TempData["Success"]</div>
+}
+<form method="get" class="mb-3">
+    <div class="input-group">
+        <input type="text" name="search" class="form-control" placeholder="Search by name, phone, email..." value="@ViewBag.Search" />
+        <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search"></i></button>
+        @if (!string.IsNullOrEmpty(ViewBag.Search as string))
+        {
+            <a asp-action="Index" class="btn btn-outline-danger"><i class="bi bi-x"></i></a>
+        }
+    </div>
+</form>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr><th>Name</th><th>Phone</th><th>Email</th><th>Group</th><th>Loyalty Points</th><th>Tier</th><th>Sales</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var c in Model)
+                {
+                    <tr>
+                        <td><a asp-action="Details" asp-route-id="@c.Id" class="fw-bold text-decoration-none">@c.Name</a></td>
+                        <td>@(c.Phone ?? "—")</td>
+                        <td>@(c.Email ?? "—")</td>
+                        <td>@(c.CustomerGroup != null ? Html.Raw($"<span class='badge bg-info text-dark'>{c.CustomerGroup.Name}</span>") : Html.Raw("<span class='text-muted'>—</span>"))</td>
+                        <td>@(c.LoyaltyAccount?.Points.ToString("N0") ?? "0")</td>
+                        <td>
+                            @{
+                                var tier = c.LoyaltyAccount?.Tier ?? "Standard";
+                                var tierClass = tier switch { "Platinum" => "bg-dark", "Gold" => "bg-warning text-dark", "Silver" => "bg-secondary", _ => "bg-light text-dark border" };
+                            }
+                            <span class="badge @tierClass">@tier</span>
+                        </td>
+                        <td>@c.Sales.Count</td>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@c.Id" class="btn btn-sm btn-outline-info">View</a>
+                            <a asp-action="Edit" asp-route-id="@c.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4">No customers found.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

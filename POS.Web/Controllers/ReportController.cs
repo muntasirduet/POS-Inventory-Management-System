@@ -90,4 +90,78 @@ public class ReportController : Controller
         ws.Cells.AutoFitColumns();
         return File(package.GetAsByteArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "InventoryReport.xlsx");
     }
+
+    // --- TAX / VAT REPORT ---
+    [PermissionAuthorize("reports.view")]
+    public async Task<IActionResult> TaxReport(DateTime? from, DateTime? to, int? branchId)
+    {
+        var f = from ?? DateTime.Today.AddMonths(-1);
+        var t = to ?? DateTime.Today;
+        ViewBag.From = f.ToString("yyyy-MM-dd");
+        ViewBag.To = t.ToString("yyyy-MM-dd");
+
+        var saleItems = await _db.SaleItems
+            .Include(si => si.Sale)
+            .Include(si => si.Product).ThenInclude(p => p.TaxRate)
+            .Where(si => si.Sale.Status == POS.Core.Enums.SaleStatus.Completed
+                      && si.Sale.CreatedAt >= f
+                      && si.Sale.CreatedAt <= t.AddDays(1)
+                      && (!branchId.HasValue || si.Sale.BranchId == branchId))
+            .ToListAsync();
+
+        var rows = saleItems
+            .GroupBy(si => si.Product.TaxRate != null
+                ? new { RateName = si.Product.TaxRate.Name, Rate = si.Product.TaxRate.Rate }
+                : new { RateName = "No Tax", Rate = 0m })
+            .Select(g => new TaxReportRow
+            {
+                TaxRateName = g.Key.RateName,
+                Rate = g.Key.Rate,
+                TaxableAmount = g.Sum(si => si.LineTotal),
+                TaxAmount = g.Sum(si => si.LineTotal * g.Key.Rate)
+            })
+            .OrderBy(r => r.Rate)
+            .ToList();
+
+        ViewBag.Branches = await _db.Branches.ToListAsync();
+        ViewBag.BranchId = branchId;
+        return View(rows);
+    }
+
+    [PermissionAuthorize("reports.export")]
+    public async Task<IActionResult> ExportTaxCsv(DateTime? from, DateTime? to, int? branchId)
+    {
+        var f = from ?? DateTime.Today.AddMonths(-1);
+        var t = to ?? DateTime.Today;
+
+        var rows = await _db.SaleItems
+            .Include(si => si.Sale)
+            .Include(si => si.Product).ThenInclude(p => p.TaxRate)
+            .Where(si => si.Sale.Status == POS.Core.Enums.SaleStatus.Completed
+                      && si.Sale.CreatedAt >= f
+                      && si.Sale.CreatedAt <= t.AddDays(1)
+                      && (!branchId.HasValue || si.Sale.BranchId == branchId))
+            .ToListAsync();
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Sale Number,Date,Product,SKU,Qty,Unit Price,Line Total,Tax Rate,Tax Amount");
+        foreach (var si in rows)
+        {
+            var rate = si.Product?.TaxRate?.Rate ?? 0;
+            csv.AppendLine($"\"{si.Sale.SaleNumber}\",\"{si.Sale.CreatedAt:yyyy-MM-dd HH:mm}\"," +
+                           $"\"{si.Product?.Name}\",\"{si.Product?.SKU}\"," +
+                           $"{si.Qty},{si.UnitPrice:F4},{si.LineTotal:F4},{rate:P2},{si.LineTotal * rate:F4}");
+        }
+
+        return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv",
+            $"TaxReport_{f:yyyyMMdd}_{t:yyyyMMdd}.csv");
+    }
+}
+
+public class TaxReportRow
+{
+    public string TaxRateName { get; set; } = string.Empty;
+    public decimal Rate { get; set; }
+    public decimal TaxableAmount { get; set; }
+    public decimal TaxAmount { get; set; }
 }
